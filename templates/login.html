@@ -14,7 +14,8 @@
 <style>
     body {
         font-family: 'Inter', sans-serif;
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); /* cream to light grey */
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        /* cream to light grey */
         min-height: 100vh;
     }
 
@@ -43,7 +44,8 @@
     }
 
     .login-header {
-        background: linear-gradient(135deg, #6c757d 0%, #495057 100%); /* grey gradient */
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        /* grey gradient */
         color: white;
         padding: 2.5rem 2rem 1.5rem;
         text-align: center;
@@ -83,7 +85,7 @@
         margin-bottom: 1.5rem;
     }
 
-    .form-floating > .form-control {
+    .form-floating>.form-control {
         border: 2px solid #e9ecef;
         border-radius: 12px;
         padding: 1rem 0.75rem;
@@ -91,12 +93,12 @@
         transition: all 0.3s ease;
     }
 
-    .form-floating > .form-control:focus {
+    .form-floating>.form-control:focus {
         border-color: #6c757d;
         box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
     }
 
-    .form-floating > label {
+    .form-floating>label {
         color: #6c757d;
         font-weight: 500;
     }
@@ -215,20 +217,27 @@
     }
 
     @keyframes float {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-20px); }
+
+        0%,
+        100% {
+            transform: translateY(0px);
+        }
+
+        50% {
+            transform: translateY(-20px);
+        }
     }
 
     @media (max-width: 768px) {
         body {
             padding-top: 60px;
         }
-        
+
         .container_base {
             min-height: calc(100vh - 60px);
             padding: 1rem;
         }
-        
+
         .login-body {
             padding: 2rem 1.5rem;
         }
@@ -246,32 +255,47 @@
 
             <div class="login-body">
                 <form method="post">
+                    {{ form.hidden_tag() }}
+
                     <div class="form-floating">
-                        <input type="text" name="username" id="username" class="form-control" placeholder="Enter username" required>
+                        {{ form.username(class="form-control", placeholder="Enter username", id="username") }}
                         <label for="username"><i class="fas fa-user me-2"></i>Username</label>
+                        {% if form.username.errors %}
+                        <div class="text-danger">{{ form.username.errors[0] }}</div>
+                        {% endif %}
                     </div>
 
                     <div class="form-floating">
-                        <input type="password" name="password" id="password" class="form-control" placeholder="Enter password" required>
+                        {{ form.password(class="form-control", placeholder="Enter password", id="password") }}
                         <label for="password"><i class="fas fa-lock me-2"></i>Password</label>
+                        {% if form.password.errors %}
+                        <div class="text-danger">{{ form.password.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+
+
+                    <div class="form-check mt-3">
+                        {{ form.remember(class="form-check-input", id="remember") }}
+                        <label class="form-check-label" for="remember">
+                            Remember me
+                        </label>
                     </div>
 
                     <div class="d-grid mt-3">
-                        <button type="submit" class="btn btn-login btn-lg">
-                            <i class="fas fa-sign-in-alt me-2"></i>Log In
-                        </button>
+                        {{ form.submit(class="btn btn-login btn-lg") }}
                     </div>
+                    <input type="hidden" name="next" value="{{ request.args.get('next') }}">
                 </form>
 
                 <div class="forgot-password">
-                    <a href="{{ url_for('index') }}"> 
+                    <a href="{{ url_for('index') }}">
                         <i class="fas fa-key me-1"></i>Forgot Password?
                     </a>
                 </div>
 
                 <div class="link-section">
-                    <p class="mb-0">Don't have an account? 
-                        <a href="{{ url_for('index') }}">
+                    <p class="mb-0">Don't have an account?
+                        <a href="{{ url_for('register') }}">
                             <i class="fas fa-user-plus me-1"></i>Create Account
                         </a>
                     </p>
