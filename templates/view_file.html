@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}{{ file.original_filename }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0"><i class="fas fa-file-alt"></i> File Details</h3>
+                    <a href="{{ url_for('files_list') }}" class="btn btn-light btn-sm">
+                        <i class="fas fa-arrow-left"></i> Back to Files
+                    </a>
+                    <!-- Button to open modal -->
+                    <button class="btn btn-primary btn-sm" id="openFileModalBtn">
+                        <i class="fas fa-eye"></i> View in Popup
+                    </button>
+                </div>
+                <div class="card-body p-4">
+                    <!-- File Info Content (for normal view) -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="text-muted small">Filename</label>
+                                <p class="fw-bold fs-5">
+                                    <i class="fas fa-file text-primary"></i> {{ file.original_filename }}
+                                </p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="text-muted small">Owner</label>
+                                <p class="fw-bold">
+                                    <i class="fas fa-user text-success"></i> {{ file.owner.username }}
+                                    {% if is_owner %}
+                                        <span class="badge bg-success ms-2">You</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="text-muted small">File Size</label>
+                                <p class="fw-bold">
+                                    <i class="fas fa-weight-hanging text-info"></i> {{ "%.2f"|format(file.file_size / 1024) }} KB
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="text-muted small">Upload Date</label>
+                                <p class="fw-bold">
+                                    <i class="fas fa-calendar text-warning"></i> {{ file.upload_date.strftime('%Y-%m-%d %H:%M:%S') }}
+                                </p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="text-muted small">File Type</label>
+                                <p class="fw-bold">
+                                    <i class="fas fa-tag text-secondary"></i> {{ file.mime_type or 'Unknown' }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="text-muted small">Description</label>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                {% if file.description %}
+                                    <p class="mb-0">{{ file.description }}</p>
+                                {% else %}
+                                    <p class="text-muted mb-0"><i>No description provided.</i></p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{{ url_for('download_file', file_id=file.id) }}" class="btn btn-success">
+                            <i class="fas fa-download"></i> Download
+                        </a>
+                        
+                        {% if is_owner %}
+                        <a href="{{ url_for('edit_file', file_id=file.id) }}" class="btn btn-warning">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal (Popup) - Full Screen with Scrolling -->
+<div class="modal fade" id="fileModal" tabindex="-1" role="dialog" aria-labelledby="fileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="fileModalLabel"><i class="fas fa-file-alt"></i> {{ file.original_filename }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto; height: calc(100vh - 120px);">
+                <!-- Display File Preview Based on File Type -->
+                {% if file.mime_type == 'application/pdf' %}
+                    <embed src="{{ url_for('serve_file', file_id=file.id) }}" type="application/pdf" width="100%" height="100%" style="min-height: 800px;">
+                {% elif file.mime_type.startswith('image/') %}
+                    <div class="text-center">
+                        <img src="{{ url_for('serve_file', file_id=file.id) }}" class="img-fluid" alt="Image Preview" style="max-width: 100%; height: auto;">
+                    </div>
+                {% elif file.mime_type == 'text/plain' %}
+                    <pre style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word;">{{ file_content }}</pre>
+                {% else %}
+                    <div class="alert alert-warning text-center">
+                        <p>This file type cannot be previewed.</p>
+                        <a href="{{ url_for('download_file', file_id=file.id) }}" class="btn btn-primary">
+                            <i class="fas fa-download"></i> Download to View
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <a href="{{ url_for('download_file', file_id=file.id) }}" class="btn btn-success">
+                    <i class="fas fa-download"></i> Download
+                </a>
+                {% if is_owner %}
+                <a href="{{ url_for('edit_file', file_id=file.id) }}" class="btn btn-warning">
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+                {% endif %}
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Use Bootstrap 5 modal if available, otherwise fallback to Bootstrap 4
+    document.addEventListener('DOMContentLoaded', function() {
+        const openBtn = document.getElementById('openFileModalBtn');
+        const modalElement = document.getElementById('fileModal');
+        
+        openBtn.addEventListener('click', function(event) {
+            event.preventDefault();
+            
+            // Try Bootstrap 5 first
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
+            }
+            // Fallback to Bootstrap 4/jQuery
+            else if (typeof $ !== 'undefined' && $.fn.modal) {
+                $(modalElement).modal('show');
+            }
+        });
+    });
+</script>
+
+{% endblock %}
