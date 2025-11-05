@@ -2,6 +2,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, TextAreaField, SubmitField, BooleanField, EmailField
 from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError
 from db import User
+from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 
 class RegistrationForm(FlaskForm):
@@ -43,3 +44,18 @@ class ChangePasswordForm(FlaskForm):
 class ChangeEmailForm(FlaskForm):
     email = EmailField('New Email Address', validators=[DataRequired(), Email()])
     submit = SubmitField('Update Email')
+
+class FileUploadForm(FlaskForm):
+    file = FileField('File', validators=[
+        FileRequired(),
+        FileAllowed(['pdf', 'doc', 'docx', 'txt', 'png', 'jpg', 'jpeg', 'gif', 'zip', 'csv', 'xlsx'], 
+                   'Only documents and images allowed!')
+    ])
+    description = TextAreaField('Description', validators=[Length(max=500)])
+    submit = SubmitField('Upload File')
+
+class FileEditForm(FlaskForm):
+    filename = StringField('Filename', validators=[DataRequired(), Length(min=1, max=255)])
+    description = TextAreaField('Description', validators=[Length(max=500)])
+    submit = SubmitField('Update File')
+

@@ -66,4 +66,22 @@ class User(UserMixin,db.Model):
     def __repr__(self):
         return f"User(name='{self.username}', email='{self.email}')"
     
+class File(db.Model):
+    __tablename__ = "files"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+    original_filename = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    file_path = db.Column(db.String(500), nullable=False)
+    file_size = db.Column(db.Integer)  # in bytes
+    mime_type = db.Column(db.String(100))
+    upload_date = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # Relationship
+    owner = db.relationship('User', backref=db.backref('files', lazy=True, cascade='all, delete-orphan'))
+    
+    def __repr__(self):
+        return f"File('{self.filename}', owner='{self.owner.username}')"
 
