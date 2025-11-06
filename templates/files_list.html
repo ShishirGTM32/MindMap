@@ -3,146 +3,779 @@
 {% block title %}My Files{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<style>
+    .file-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .file-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+    
+    .file-icon-container {
+        height: 120px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        position: relative;
+    }
+    
+    .file-icon {
+        font-size: 3.5rem;
+        color: white;
+    }
+    
+    .file-info {
+        padding: 12px 16px;
+        background: white;
+    }
+    
+    .file-name {
+        font-weight: 500;
+        font-size: 14px;
+        color: #202124;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+    }
+    
+    .file-meta {
+        font-size: 12px;
+        color: #5f6368;
+    }
+    
+    .file-actions {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0,0,0,0.7);
+        padding: 8px;
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    
+    .file-card:hover .file-actions {
+        opacity: 1;
+    }
+    
+    .file-actions .btn {
+        padding: 6px 10px;
+        font-size: 12px;
+        border-radius: 4px;
+    }
+    
+    .view-toggle {
+        background: white;
+        border: 1px solid #dadce0;
+        border-radius: 8px;
+        padding: 4px;
+    }
+    
+    .view-toggle .btn {
+        border: none;
+        background: transparent;
+        padding: 6px 12px;
+        border-radius: 4px;
+    }
+    
+    .view-toggle .btn.active {
+        background: #e8f0fe;
+        color: #1967d2;
+    }
+    
+    .section-header {
+        font-size: 14px;
+        font-weight: 500;
+        color: #5f6368;
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .owner-badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: #e8f0fe;
+        color: #1967d2;
+        display: inline-block;
+        margin-top: 4px;
+    }
+    
+    /* List View Styles */
+    .list-view {
+        display: none;
+    }
+    
+    .list-view.active {
+        display: block;
+    }
+    
+    .grid-view.active {
+        display: flex;
+    }
+    
+    .grid-view {
+        display: none;
+    }
+    
+    .file-list-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        background: white;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .file-list-item:hover {
+        background: #f8f9fa;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .file-list-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 4px;
+        margin-right: 16px;
+        flex-shrink: 0;
+    }
+    
+    .file-list-icon i {
+        font-size: 20px;
+        color: white;
+    }
+    
+    .file-list-info {
+        flex-grow: 1;
+        min-width: 0;
+    }
+    
+    .file-list-name {
+        font-weight: 500;
+        font-size: 14px;
+        color: #202124;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .file-list-meta {
+        font-size: 12px;
+        color: #5f6368;
+        margin-top: 2px;
+    }
+    
+    .file-list-actions {
+        display: flex;
+        gap: 8px;
+        margin-left: 16px;
+    }
+    
+    .file-list-actions .btn {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+</style>
+
+<div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-folder-open"></i> File Manager</h2>
-        <a href="{{ url_for('upload_file') }}" class="btn btn-primary btn-lg">
-            <i class="fas fa-upload"></i> Upload File
-        </a>
+        <h3 class="mb-0" style="color: #202124; font-weight: 400;">
+            <i class="fas fa-folder-open" style="color: #5f6368;"></i> My Drive
+        </h3>
+        <div class="d-flex gap-3 align-items-center">
+            <div class="view-toggle">
+                <button class="btn btn-sm active" id="gridView">
+                    <i class="fas fa-th"></i>
+                </button>
+                <button class="btn btn-sm" id="listView">
+                    <i class="fas fa-list"></i>
+                </button>
+            </div>
+            <a href="{{ url_for('upload_file') }}" class="btn btn-primary" style="border-radius: 24px; padding: 8px 24px;">
+                <i class="fas fa-plus"></i> New
+            </a>
+        </div>
     </div>
 
     <!-- User's Files -->
-    <div class="card mb-5">
-        <div class="card-header bg-primary text-white">
-            <h4 class="mb-0"><i class="fas fa-user"></i> My Files</h4>
+    <div class="mb-5">
+        <div class="section-header">
+            <i class="fas fa-user"></i> My Files
         </div>
-        <div class="card-body">
-            {% if user_files %}
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th><i class="fas fa-file"></i> Filename</th>
-                            <th><i class="fas fa-comment"></i> Description</th>
-                            <th><i class="fas fa-weight"></i> Size</th>
-                            <th><i class="fas fa-calendar"></i> Upload Date</th>
-                            <th><i class="fas fa-cogs"></i> Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for file in user_files %}
-                        <tr>
-                            <td>
-                                <i class="fas fa-file-alt text-primary"></i> 
-                                <a href="{{ url_for('view_file', file_id=file.id) }}" class="text-decoration-none">
-                                    {{ file.original_filename }}
-                                </a>
-                            </td>
-                            <td>
-                                {% if file.description %}
-                                    {{ file.description[:50] }}{% if file.description|length > 50 %}...{% endif %}
-                                {% else %}
-                                    <span class="text-muted">No description</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ "%.2f"|format(file.file_size / 1024) }} KB</td>
-                            <td>{{ file.upload_date.strftime('%Y-%m-%d %H:%M') }}</td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <a href="{{ url_for('view_file', file_id=file.id) }}" class="btn btn-sm btn-info" title="View">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <a href="{{ url_for('download_file', file_id=file.id) }}" class="btn btn-sm btn-success" title="Download">
-                                        <i class="fas fa-download"></i>
-                                    </a>
-                                    <a href="{{ url_for('edit_file', file_id=file.id) }}" class="btn btn-sm btn-warning" title="Edit">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <form method="POST" action="{{ url_for('delete_file', file_id=file.id) }}" style="display:inline;">
-                                        <button type="submit" class="btn btn-sm btn-danger" title="Delete" 
-                                                onclick="return confirm('Are you sure you want to delete this file?')">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        
+        {% if user_files %}
+        <div class="row g-3 grid-view active" id="userFilesGrid">
+            {% for file in user_files %}
+            <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2">
+                <div class="file-card" onclick="openFileModal({{ file.id }}, '{{ file.original_filename }}', '{{ file.mime_type or '' }}')">
+                    <div class="file-icon-container">
+                        <i class="fas fa-file-alt file-icon"></i>
+                        <div class="file-actions" onclick="event.stopPropagation();">
+                            <a href="{{ url_for('download_file', file_id=file.id) }}" 
+                               class="btn btn-sm btn-light" 
+                               title="Download"
+                               onclick="event.stopPropagation();">
+                                <i class="fas fa-download"></i>
+                            </a>
+                            <button type="button" 
+                                    class="btn btn-sm btn-light" 
+                                    title="Share"
+                                    onclick="event.stopPropagation(); openShareModal({{ file.id }}, '{{ file.original_filename }}');">
+                                <i class="fas fa-share-alt"></i>
+                            </button>
+                            <form method="POST" 
+                                  action="{{ url_for('delete_file', file_id=file.id) }}" 
+                                  style="display:inline; margin: 0;"
+                                  onsubmit="event.stopPropagation();">
+                                <button type="submit" 
+                                        class="btn btn-sm btn-danger" 
+                                        title="Delete" 
+                                        onclick="event.stopPropagation(); return confirm('Are you sure you want to delete this file?')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="file-info">
+                        <div class="file-name" title="{{ file.original_filename }}">
+                            {{ file.original_filename }}
+                        </div>
+                        <div class="file-meta">
+                            {{ "%.1f"|format(file.file_size / 1024) }} KB • {{ file.upload_date.strftime('%b %d') }}
+                        </div>
+                    </div>
+                </div>
             </div>
-            {% else %}
-            <div class="text-center py-5">
-                <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
-                <p class="text-muted">You haven't uploaded any files yet.</p>
-                <a href="{{ url_for('upload_file') }}" class="btn btn-primary">
-                    <i class="fas fa-upload"></i> Upload Your First File
-                </a>
-            </div>
-            {% endif %}
+            {% endfor %}
         </div>
+        
+        <div class="list-view" id="userFilesList">
+            {% for file in user_files %}
+            <div class="file-list-item" onclick="openFileModal({{ file.id }}, '{{ file.original_filename }}', '{{ file.mime_type or '' }}')">
+                <div class="file-list-icon">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div class="file-list-info">
+                    <div class="file-list-name" title="{{ file.original_filename }}">
+                        {{ file.original_filename }}
+                    </div>
+                    <div class="file-list-meta">
+                        {{ "%.1f"|format(file.file_size / 1024) }} KB • {{ file.upload_date.strftime('%b %d, %Y') }}
+                    </div>
+                </div>
+                <div class="file-list-actions" onclick="event.stopPropagation();">
+                    <a href="{{ url_for('view_file', file_id=file.id) }}" 
+                       class="btn btn-sm btn-outline-info" 
+                       title="View"
+                       onclick="event.stopPropagation();"
+                       target="_blank">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="{{ url_for('download_file', file_id=file.id) }}" 
+                       class="btn btn-sm btn-outline-success" 
+                       title="Download"
+                       onclick="event.stopPropagation();">
+                        <i class="fas fa-download"></i>
+                    </a>
+                    <button type="button" 
+                            class="btn btn-sm btn-outline-primary" 
+                            title="Share"
+                            onclick="event.stopPropagation(); openShareModal({{ file.id }}, '{{ file.original_filename }}');">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
+                    <form method="POST" 
+                          action="{{ url_for('delete_file', file_id=file.id) }}" 
+                          style="display:inline; margin: 0;"
+                          onsubmit="event.stopPropagation();">
+                        <button type="submit" 
+                                class="btn btn-sm btn-outline-danger" 
+                                title="Delete" 
+                                onclick="event.stopPropagation(); return confirm('Are you sure you want to delete this file?')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
+            <p class="text-muted">You haven't uploaded any files yet.</p>
+            <a href="{{ url_for('upload_file') }}" class="btn btn-primary" style="border-radius: 24px;">
+                <i class="fas fa-upload"></i> Upload Your First File
+            </a>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Other Users' Files -->
-    <div class="card">
-        <div class="card-header bg-success text-white">
-            <h4 class="mb-0"><i class="fas fa-users"></i> Other Users' Files</h4>
+    <div class="mb-5">
+        <div class="section-header">
+            <i class="fas fa-users"></i> Shared with me
         </div>
-        <div class="card-body">
-            {% if other_files %}
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th><i class="fas fa-file"></i> Filename</th>
-                            <th><i class="fas fa-user"></i> Owner</th>
-                            <th><i class="fas fa-comment"></i> Description</th>
-                            <th><i class="fas fa-weight"></i> Size</th>
-                            <th><i class="fas fa-calendar"></i> Upload Date</th>
-                            <th><i class="fas fa-cogs"></i> Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for file in other_files %}
-                        <tr>
-                            <td>
-                                <i class="fas fa-file-alt text-success"></i> 
-                                <a href="{{ url_for('view_file', file_id=file.id) }}" class="text-decoration-none">
-                                    {{ file.original_filename }}
-                                </a>
-                            </td>
-                            <td><span class="badge bg-secondary">{{ file.owner.username }}</span></td>
-                            <td>
-                                {% if file.description %}
-                                    {{ file.description[:50] }}{% if file.description|length > 50 %}...{% endif %}
-                                {% else %}
-                                    <span class="text-muted">No description</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ "%.2f"|format(file.file_size / 1024) }} KB</td>
-                            <td>{{ file.upload_date.strftime('%Y-%m-%d %H:%M') }}</td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <a href="{{ url_for('view_file', file_id=file.id) }}" class="btn btn-sm btn-info" title="View">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <a href="{{ url_for('download_file', file_id=file.id) }}" class="btn btn-sm btn-success" title="Download">
-                                        <i class="fas fa-download"></i>
-                                    </a>
+        
+        {% if other_files %}
+        <div class="row g-3 grid-view active" id="otherFilesGrid">
+            {% for file in other_files %}
+            <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2">
+                <div class="file-card" onclick="openFileModal({{ file.id }}, '{{ file.original_filename }}', '{{ file.mime_type or '' }}')">
+                    <div class="file-icon-container" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                        <i class="fas fa-file-alt file-icon"></i>
+                        <div class="file-actions" onclick="event.stopPropagation();">
+                            <a href="{{ url_for('view_file', file_id=file.id) }}" 
+                               class="btn btn-sm btn-light" 
+                               title="View"
+                               onclick="event.stopPropagation();"
+                               target="_blank">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{{ url_for('download_file', file_id=file.id) }}" 
+                               class="btn btn-sm btn-light" 
+                               title="Download"
+                               onclick="event.stopPropagation();">
+                                <i class="fas fa-download"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="file-info">
+                        <div class="file-name" title="{{ file.original_filename }}">
+                            {{ file.original_filename }}
+                        </div>
+                        <div class="file-meta">
+                            {{ "%.1f"|format(file.file_size / 1024) }} KB • {{ file.upload_date.strftime('%b %d') }}
+                        </div>
+                        <span class="owner-badge">
+                            <i class="fas fa-user"></i> {{ file.owner.username }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="list-view" id="otherFilesList">
+            {% for file in other_files %}
+            <div class="file-list-item" onclick="openFileModal({{ file.id }}, '{{ file.original_filename }}', '{{ file.mime_type or '' }}')">
+                <div class="file-list-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div class="file-list-info">
+                    <div class="file-list-name" title="{{ file.original_filename }}">
+                        {{ file.original_filename }}
+                        <span class="owner-badge ms-2">
+                            <i class="fas fa-user"></i> {{ file.owner.username }}
+                        </span>
+                    </div>
+                    <div class="file-list-meta">
+                        {{ "%.1f"|format(file.file_size / 1024) }} KB • {{ file.upload_date.strftime('%b %d, %Y') }}
+                    </div>
+                </div>
+                <div class="file-list-actions" onclick="event.stopPropagation();">
+                    <a href="{{ url_for('view_file', file_id=file.id) }}" 
+                       class="btn btn-sm btn-outline-info" 
+                       title="View"
+                       onclick="event.stopPropagation();"
+                       target="_blank">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="{{ url_for('download_file', file_id=file.id) }}" 
+                       class="btn btn-sm btn-outline-success" 
+                       title="Download"
+                       onclick="event.stopPropagation();">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+            <p class="text-muted">No files shared with you.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1" role="dialog" aria-labelledby="shareModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable" role="document" style="max-width: 600px;">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h5 class="modal-title" id="shareModalLabel">
+                    <i class="fas fa-share-alt"></i> Share File
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <p class="text-muted mb-2">Sharing: <strong id="shareFileName"></strong></p>
+                </div>
+                
+                <!-- Add New Share -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3">
+                            <i class="fas fa-user-plus"></i> Add People
+                        </h6>
+                        <form id="shareForm">
+                            <div class="mb-3">
+                                <label for="shareEmail" class="form-label">Email Address</label>
+                                <div class="input-group">
+                                    <input type="email" 
+                                           class="form-control" 
+                                           id="shareEmail" 
+                                           name="email" 
+                                           placeholder="Enter email address"
+                                           required>
+                                    <button type="button" class="btn btn-primary" id="shareSubmitBtn">
+                                        <i class="fas fa-share-alt"></i> Share
+                                    </button>
                                 </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                <div class="form-text">Enter the email of the person you want to share with.</div>
+                                <div id="shareError" class="text-danger mt-2" style="display: none;"></div>
+                                <div id="shareSuccess" class="text-success mt-2" style="display: none;"></div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Current Shares -->
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3">
+                            <i class="fas fa-users"></i> People with access
+                        </h6>
+                        <div id="sharesList">
+                            <div class="text-center py-3">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            {% else %}
-            <div class="text-center py-4">
-                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                <p class="text-muted">No other files available.</p>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
-            {% endif %}
         </div>
     </div>
 </div>
+
+<!-- File Preview Modal -->
+<div class="modal fade" id="fileModal" tabindex="-1" role="dialog" aria-labelledby="fileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen" role="document">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h5 class="modal-title" id="fileModalLabel"><i class="fas fa-file-alt"></i> <span id="modalFileName"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="fileModalBody" style="overflow-y: auto; height: calc(100vh - 120px); background: #f5f5f5;">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a id="modalDownloadBtn" href="#" class="btn btn-success">
+                    <i class="fas fa-download"></i> Download
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentShareFileId = null;
+
+    // View toggle functionality
+    document.getElementById('gridView').addEventListener('click', function() {
+        this.classList.add('active');
+        document.getElementById('listView').classList.remove('active');
+        
+        document.querySelectorAll('.grid-view').forEach(el => el.classList.add('active'));
+        document.querySelectorAll('.list-view').forEach(el => el.classList.remove('active'));
+    });
+    
+    document.getElementById('listView').addEventListener('click', function() {
+        this.classList.add('active');
+        document.getElementById('gridView').classList.remove('active');
+        
+        document.querySelectorAll('.list-view').forEach(el => el.classList.add('active'));
+        document.querySelectorAll('.grid-view').forEach(el => el.classList.remove('active'));
+    });
+
+    // Open share modal and load existing shares
+    async function openShareModal(fileId, fileName) {
+        currentShareFileId = fileId;
+        document.getElementById('shareFileName').textContent = fileName;
+        document.getElementById('shareEmail').value = '';
+        document.getElementById('shareError').style.display = 'none';
+        document.getElementById('shareSuccess').style.display = 'none';
+        
+        const shareModalElement = document.getElementById('shareModal');
+        let shareModal;
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            shareModal = new bootstrap.Modal(shareModalElement);
+            shareModal.show();
+        } else if (typeof $ !== 'undefined' && $.fn.modal) {
+            $(shareModalElement).modal('show');
+        }
+        
+        // Load existing shares
+        await loadShares(fileId);
+    }
+    
+    // Load existing shares for a file
+    async function loadShares(fileId) {
+        const sharesList = document.getElementById('sharesList');
+        sharesList.innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+        
+        try {
+            const response = await fetch(`/files/${fileId}/get-shares`);
+            const data = await response.json();
+            
+            if (data.success && data.shares.length > 0) {
+                sharesList.innerHTML = data.shares.map(share => `
+                    <div class="d-flex align-items-center justify-content-between p-2 mb-2 border rounded" id="share-${share.id}">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-user-circle fa-2x text-primary"></i>
+                            </div>
+                            <div>
+                                <div class="fw-semibold">${share.email}</div>
+                                <small class="text-muted">Shared on ${new Date(share.shared_at).toLocaleDateString()}</small>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeShare(${fileId}, ${share.id}, '${share.email}')">
+                            <i class="fas fa-times"></i> Remove
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                sharesList.innerHTML = `
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-user-slash fa-2x mb-2"></i>
+                        <p class="mb-0">Not shared with anyone yet</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            sharesList.innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading shares
+                </div>
+            `;
+        }
+    }
+
+    // Handle share form submission
+    document.getElementById('shareSubmitBtn').addEventListener('click', async function() {
+        const email = document.getElementById('shareEmail').value;
+        const errorDiv = document.getElementById('shareError');
+        const successDiv = document.getElementById('shareSuccess');
+        const submitBtn = this;
+        
+        // Reset messages
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+        
+        if (!email) {
+            errorDiv.textContent = 'Please enter an email address.';
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        // Disable button during submission
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sharing...';
+        
+        try {
+            const response = await fetch(`/files/${currentShareFileId}/share`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email: email })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                successDiv.textContent = data.message;
+                successDiv.style.display = 'block';
+                document.getElementById('shareEmail').value = '';
+                
+                // Reload shares list
+                await loadShares(currentShareFileId);
+                
+                // Hide success message after 3 seconds
+                setTimeout(() => {
+                    successDiv.style.display = 'none';
+                }, 3000);
+            } else {
+                errorDiv.textContent = data.message;
+                errorDiv.style.display = 'block';
+            }
+        } catch (error) {
+            errorDiv.textContent = 'An error occurred while sharing the file.';
+            errorDiv.style.display = 'block';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-share-alt"></i> Share';
+        }
+    });
+    
+    // Remove share function - made global
+    window.removeShare = async function(fileId, shareId, email) {
+        if (!confirm(`Remove access for ${email}?`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/files/${fileId}/remove-share/${shareId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Remove from UI
+                const shareElement = document.getElementById(`share-${shareId}`);
+                if (shareElement) {
+                    shareElement.remove();
+                }
+                
+                // Check if list is empty
+                const sharesList = document.getElementById('sharesList');
+                if (sharesList.children.length === 0) {
+                    sharesList.innerHTML = `
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-user-slash fa-2x mb-2"></i>
+                            <p class="mb-0">Not shared with anyone yet</p>
+                        </div>
+                    `;
+                }
+                
+                // Show success message
+                const successDiv = document.getElementById('shareSuccess');
+                successDiv.textContent = data.message;
+                successDiv.style.display = 'block';
+                setTimeout(() => {
+                    successDiv.style.display = 'none';
+                }, 3000);
+            } else {
+                alert(data.message);
+            }
+        } catch (error) {
+            alert('An error occurred while removing the share.');
+        }
+    };
+
+    // Function to open file in modal
+    function openFileModal(fileId, fileName, mimeType) {
+        const modalElement = document.getElementById('fileModal');
+        const modalBody = document.getElementById('fileModalBody');
+        const modalFileName = document.getElementById('modalFileName');
+        const modalDownloadBtn = document.getElementById('modalDownloadBtn');
+        
+        modalFileName.textContent = fileName;
+        
+        const downloadUrl = '/files/download/' + fileId;
+        const serveUrl = '/files/serve/' + fileId;
+        
+        modalDownloadBtn.href = downloadUrl;
+        
+        modalBody.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+        
+        let modal;
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        } else if (typeof $ !== 'undefined' && $.fn.modal) {
+            $(modalElement).modal('show');
+        }
+        
+        if (mimeType === 'application/pdf') {
+            modalBody.innerHTML = `
+                <embed src="${serveUrl}" type="application/pdf" width="100%" height="100%" style="min-height: 800px;">
+            `;
+        } else if (mimeType && mimeType.startsWith('image/')) {
+            modalBody.innerHTML = `
+                <div class="text-center">
+                    <img src="${serveUrl}" class="img-fluid" alt="Image Preview" style="max-width: 100%; height: auto;">
+                </div>
+            `;
+        } else if (mimeType === 'text/plain') {
+            fetch(serveUrl)
+                .then(response => response.text())
+                .then(text => {
+                    modalBody.innerHTML = `
+                        <pre style="background-color: white; padding: 20px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(text)}</pre>
+                    `;
+                })
+                .catch(error => {
+                    modalBody.innerHTML = `
+                        <div class="alert alert-danger text-center">
+                            <p>Error loading file content.</p>
+                        </div>
+                    `;
+                });
+        } else {
+            modalBody.innerHTML = `
+                <div class="alert alert-warning text-center">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                    <p>This file type cannot be previewed.</p>
+                    <a href="${downloadUrl}" class="btn btn-primary">
+                        <i class="fas fa-download"></i> Download to View
+                    </a>
+                </div>
+            `;
+        }
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
 {% endblock %}

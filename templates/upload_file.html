@@ -3,59 +3,439 @@
 {% block title %}Upload File{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="mb-0"><i class="fas fa-cloud-upload-alt"></i> Upload New File</h3>
-                </div>
-                <div class="card-body p-4">
-                    <form method="POST" enctype="multipart/form-data">
-                        {{ form.hidden_tag() }}
-                        
-                        <div class="mb-4">
-                            <label for="file" class="form-label fw-bold">
-                                <i class="fas fa-file-upload"></i> Select File
-                            </label>
-                            {{ form.file(class="form-control form-control-lg") }}
+<style>
+    .upload-container {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        background: linear-gradient(135deg, #76787c 0%, #312f33 100%);
+        margin: -20px -15px;
+        padding: 40px 15px;
+    }
+    
+    .upload-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        border: none;
+    }
+    
+    .upload-header {
+        background: linear-gradient(135deg, #80828b 0%, #403c44 100%);
+        padding: 40px;
+        text-align: center;
+        color: white;
+    }
+    
+    .upload-header h2 {
+        font-size: 2rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    .upload-header p {
+        margin: 10px 0 0 0;
+        opacity: 0.95;
+    }
+    
+    .upload-body {
+        padding: 40px;
+    }
+    
+    .file-drop-zone {
+        border: 3px dashed #cbd5e0;
+        border-radius: 12px;
+        padding: 60px 20px;
+        text-align: center;
+        background: #f7fafc;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+    }
+    
+    .file-drop-zone:hover {
+        border-color: #525d8f;
+        background: #edf2f7;
+        transform: translateY(-2px);
+    }
+    
+    .file-drop-zone.dragover {
+        border-color: #afb1bd;
+        background: #e6f0ff;
+        transform: scale(1.02);
+    }
+    
+    .file-drop-icon {
+        font-size: 4rem;
+        color: #b1b5c9;
+        margin-bottom: 20px;
+    }
+    
+    .file-drop-text {
+        font-size: 1.2rem;
+        color: #8b93a0;
+        margin-bottom: 10px;
+    }
+    
+    .file-drop-hint {
+        color: #9299a3;
+        font-size: 0.9rem;
+    }
+    
+    .file-input-hidden {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+    
+    .selected-file-info {
+        display: none;
+        background: #e6f0ff;
+        border: 2px solid #b0b5cc;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 20px;
+        animation: slideIn 0.3s ease;
+    }
+    
+    .selected-file-info.show {
+        display: block;
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .file-preview {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .file-preview-icon {
+        width: 50px;
+        height: 50px;
+        background: #9da1b6;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 24px;
+    }
+    
+    .file-preview-details {
+        flex-grow: 1;
+    }
+    
+    .file-preview-name {
+        font-weight: 600;
+        color: #b8beca;
+        margin-bottom: 5px;
+    }
+    
+    .file-preview-size {
+        color: #b4becc;
+        font-size: 0.9rem;
+    }
+    
+    .description-field {
+        margin-top: 30px;
+    }
+    
+    .description-field label {
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 10px;
+        display: block;
+    }
+    
+    .description-field textarea {
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 15px;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+    
+    .description-field textarea:focus {
+        border-color: #cccfdd;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        outline: none;
+    }
+    
+    .action-buttons {
+        margin-top: 30px;
+        display: flex;
+        gap: 15px;
+    }
+    
+    .btn-upload {
+        flex: 1;
+        padding: 15px 30px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 10px;
+        border: none;
+        background: linear-gradient(135deg, #cfd1db 0%, #4c4652 100%);
+        color: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(108, 109, 112, 0.4);
+    }
+    
+    .btn-upload:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(57, 58, 66, 0.6);
+    }
+    
+    .btn-upload:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .btn-cancel {
+        padding: 15px 30px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 10px;
+        border: 2px solid #e2e8f0;
+        background: white;
+        color: #4a5568;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-cancel:hover {
+        border-color: #cbd5e0;
+        background: #f7fafc;
+        color: #2d3748;
+    }
+    
+    .allowed-types {
+        background: #f7fafc;
+        border-left: 4px solid #667eea;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-top: 20px;
+    }
+    
+    .allowed-types-title {
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+    }
+    
+    .allowed-types-list {
+        color: #718096;
+        font-size: 0.85rem;
+        line-height: 1.6;
+    }
+    
+    .error-message {
+        background: #fff5f5;
+        border-left: 4px solid #f56565;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-top: 15px;
+        color: #c53030;
+    }
+</style>
+
+<div class="upload-container">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-10 col-lg-8">
+                <div class="upload-card">
+                    <div class="upload-header">
+                        <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                        <h2>Upload Your File</h2>
+                        <p>Drag and drop your file or click to browse</p>
+                    </div>
+                    
+                    <div class="upload-body">
+                        <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                            {{ form.hidden_tag() }}
+                            
+                            <div class="file-drop-zone" id="dropZone">
+                                <div class="file-drop-icon">
+                                    <i class="fas fa-file-upload"></i>
+                                </div>
+                                <div class="file-drop-text">
+                                    Drop your file here or click to browse
+                                </div>
+                                <div class="file-drop-hint">
+                                    Maximum file size: 16MB
+                                </div>
+                                {{ form.file(class="file-input-hidden", id="fileInput") }}
+                            </div>
+                            
                             {% if form.file.errors %}
-                                <div class="text-danger mt-2">
+                                <div class="error-message">
                                     {% for error in form.file.errors %}
-                                        <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small><br>
+                                        <i class="fas fa-exclamation-circle"></i> {{ error }}<br>
                                     {% endfor %}
                                 </div>
                             {% endif %}
-                            <small class="form-text text-muted mt-2 d-block">
-                                <i class="fas fa-info-circle"></i> 
-                                Allowed types: PDF, DOC, DOCX, TXT, PNG, JPG, JPEG, GIF, ZIP, CSV, XLSX (Max 16MB)
-                            </small>
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label for="description" class="form-label fw-bold">
-                                <i class="fas fa-comment-dots"></i> Description (Optional)
-                            </label>
-                            {{ form.description(class="form-control", rows="4", placeholder="Add a description for your file...") }}
-                            {% if form.description.errors %}
-                                <div class="text-danger mt-2">
-                                    {% for error in form.description.errors %}
-                                        <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small><br>
-                                    {% endfor %}
+                            
+                            <div class="selected-file-info" id="fileInfo">
+                                <div class="file-preview">
+                                    <div class="file-preview-icon">
+                                        <i class="fas fa-file" id="fileIcon"></i>
+                                    </div>
+                                    <div class="file-preview-details">
+                                        <div class="file-preview-name" id="fileName">No file selected</div>
+                                        <div class="file-preview-size" id="fileSize"></div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" id="removeFile">
+                                        <i class="fas fa-times"></i>
+                                    </button>
                                 </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="d-flex justify-content-between">
-                            {{ form.submit(class="btn btn-primary btn-lg") }}
-                            <a href="{{ url_for('files_list') }}" class="btn btn-secondary btn-lg">
-                                <i class="fas fa-times"></i> Cancel
-                            </a>
-                        </div>
-                    </form>
+                            </div>
+                            
+                            <div class="allowed-types">
+                                <div class="allowed-types-title">
+                                    <i class="fas fa-info-circle"></i> Allowed File Types
+                                </div>
+                                <div class="allowed-types-list">
+                                    Documents: PDF, DOC, DOCX, TXT<br>
+                                    Images: PNG, JPG, JPEG, GIF<br>
+                                    Archives: ZIP<br>
+                                    Data: CSV, XLSX
+                                </div>
+                            </div>
+                            
+                            <div class="description-field">
+                                <label for="description">
+                                    <i class="fas fa-comment-dots"></i> Description (Optional)
+                                </label>
+                                {{ form.description(class="form-control", rows="4", placeholder="Add a description to help others understand what this file contains...") }}
+                                {% if form.description.errors %}
+                                    <div class="error-message" style="margin-top: 10px;">
+                                        {% for error in form.description.errors %}
+                                            <i class="fas fa-exclamation-circle"></i> {{ error }}<br>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="action-buttons">
+                                {{ form.submit(class="btn-upload", id="submitBtn", disabled=true) }}
+                                <a href="{{ url_for('files_list') }}" class="btn-cancel">
+                                    <i class="fas fa-arrow-left"></i> Back
+                                </a>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const fileIcon = document.getElementById('fileIcon');
+    const removeFile = document.getElementById('removeFile');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // Highlight drop zone when dragging over it
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+    
+    function highlight(e) {
+        dropZone.classList.add('dragover');
+    }
+    
+    function unhighlight(e) {
+        dropZone.classList.remove('dragover');
+    }
+    
+    // Handle dropped files
+    dropZone.addEventListener('drop', handleDrop, false);
+    
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFiles(files);
+        }
+    }
+    
+    // Handle file input change
+    fileInput.addEventListener('change', function(e) {
+        handleFiles(this.files);
+    });
+    
+    function handleFiles(files) {
+        if (files.length > 0) {
+            const file = files[0];
+            const fileSizeKB = (file.size / 1024).toFixed(2);
+            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            
+            fileName.textContent = file.name;
+            fileSize.textContent = fileSizeMB > 1 ? `${fileSizeMB} MB` : `${fileSizeKB} KB`;
+            
+            // Update icon based on file type
+            const extension = file.name.split('.').pop().toLowerCase();
+            if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
+                fileIcon.className = 'fas fa-file-image';
+            } else if (['pdf'].includes(extension)) {
+                fileIcon.className = 'fas fa-file-pdf';
+            } else if (['doc', 'docx'].includes(extension)) {
+                fileIcon.className = 'fas fa-file-word';
+            } else if (['zip'].includes(extension)) {
+                fileIcon.className = 'fas fa-file-archive';
+            } else if (['csv', 'xlsx'].includes(extension)) {
+                fileIcon.className = 'fas fa-file-excel';
+            } else {
+                fileIcon.className = 'fas fa-file-alt';
+            }
+            
+            fileInfo.classList.add('show');
+            submitBtn.disabled = false;
+        }
+    }
+    
+    // Remove file
+    removeFile.addEventListener('click', function() {
+        fileInput.value = '';
+        fileInfo.classList.remove('show');
+        submitBtn.disabled = true;
+    });
+</script>
 {% endblock %}
