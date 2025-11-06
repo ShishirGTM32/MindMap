@@ -1,27 +1,40 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import UserMixin, LoginManager, login_user, login_required, logout_user, current_user
 from werkzeug.security import check_password_hash
 from flask import send_from_directory, current_app
 from werkzeug.utils import secure_filename
+from flask_mail import Message
 import mimetypes
 from datetime import datetime
 import os
 from db import *
 from forms import *
 from urllib.parse import urlparse, urljoin
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 
 app = Flask(__name__)
 
 # Configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['REMEMBER_COOKIE_SECURE'] = False  # Set to True in production
+app.config['REMEMBER_COOKIE_SECURE'] = False 
 app.config['REMEMBER_COOKIE_HTTPONLY'] = True
+
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # Use your SMTP server
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('EMAIL_HOST_USER')
+app.config['MAIL_PASSWORD'] = os.environ.get('EMAIL_HOST_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('EMAIL_HOST_USER')
 
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+mail = Mail(app) 
+serializer = URLSafeTimedSerializer(app.config['SECRET_KEY']) 
 
 
 
@@ -267,14 +280,15 @@ def internal_error(error):
 @app.route('/files')
 @login_required
 def files_list():
-    """List all files - user's own files and others' files"""
+    """List all files - user's own files and files shared with them"""
     user_files = File.query.filter_by(user_id=current_user.id).order_by(File.upload_date.desc()).all()
-    other_files = File.query.filter(File.user_id != current_user.id).order_by(File.upload_date.desc()).all()
+    shared_file_ids = db.session.query(Share_File.file_id).filter_by(email=current_user.email).all()
+    shared_file_ids = [id[0] for id in shared_file_ids]
+    other_files = File.query.filter(File.id.in_(shared_file_ids)).order_by(File.upload_date.desc()).all()
     
     return render_template('files_list.html', 
                          user_files=user_files, 
                          other_files=other_files)
-
 
 @app.route('/files/upload', methods=['GET', 'POST'])
 @login_required
@@ -286,22 +300,13 @@ def upload_file():
         file = form.file.data
         
         if file:
-            # Secure the filename
             original_filename = secure_filename(file.filename)
-            
-            # Create unique filename with timestamp
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"{timestamp}_{original_filename}"
-            
-            # Save file
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
-            
-            # Get file info
             file_size = os.path.getsize(file_path)
             mime_type = mimetypes.guess_type(file_path)[0]
-            
-            # Create database entry
             new_file = File(
                 filename=filename,
                 original_filename=original_filename,
@@ -319,7 +324,6 @@ def upload_file():
                 return redirect(url_for('files_list'))
             except Exception as e:
                 db.session.rollback()
-                # Delete the file if database insertion fails
                 if os.path.exists(file_path):
                     os.remove(file_path)
                 print(f"Error uploading file: {e}")
@@ -327,105 +331,83 @@ def upload_file():
     
     return render_template('upload_file.html', form=form)
 
-# @app.route('/files/<int:file_id>')
-# @login_required
-# def view_file(file_id):
-#     """View file details"""
-#     file = File.query.get_or_404(file_id)
-#     is_owner = file.user_id == current_user.id
-    
-#     return render_template('view_file.html', file=file, is_owner=is_owner)
-
-# @app.route('/files/<int:file_id>')
-# @login_required
-# def view_file(file_id):
-#     """View file details"""
-#     file = File.query.get_or_404(file_id)
-#     is_owner = file.user_id == current_user.id
-
-#     # Assuming 'file_path' is a column in your 'File' model that stores the relative file path
-#     file_path = file.file_path  # Replace 'file_path' with your actual column name
-#     file_name = os.path.basename(file_path)
-#     file_directory = os.path.dirname(file_path)
-
-#     # Optionally, you can check the file type and display it accordingly
-#     file_extension = file_name.split('.')[-1].lower()
-
-#     # You could add some logic to handle different file types (e.g., images, PDFs)
-#     if file_extension in ['jpg', 'jpeg', 'png', 'gif']:
-#         return send_from_directory(file_directory, file_name, as_attachment=False)
-#     elif file_extension in ['pdf', 'txt', 'docx']:
-#         return send_from_directory(file_directory, file_name, as_attachment=False)
-#     else:
-#         # For unsupported file types, offer a download
-#         return send_from_directory(file_directory, file_name, as_attachment=True)
-
-#     return render_template('view_file.html', file=file, is_owner=is_owner)
-
-@app.route('/files/<int:file_id>')
+@app.route('/files/view/<int:file_id>')
 @login_required
 def view_file(file_id):
-    """View file details"""
+    """View a specific file"""
     file = File.query.get_or_404(file_id)
+    
+    # Check if user is owner or file is shared with them
     is_owner = file.user_id == current_user.id
+    is_shared = Share_File.query.filter_by(
+        file_id=file_id, 
+        email=current_user.email
+    ).first() is not None
+    
+    if not (is_owner or is_shared):
+        flash('You do not have permission to view this file.', 'danger')
+        return redirect(url_for('files_list'))
+    
+    return render_template('view_file.html', file=file, is_owner=is_owner)
 
-    # Read the content of text files
-    file_content = None
-    if file.mime_type == 'text/plain':
-        try:
-            with open(file.file_path, 'r') as f:
-                file_content = f.read()
-        except Exception as e:
-            file_content = f"Error reading file: {e}"
 
-    # Pass file content to the template
-    return render_template('view_file.html', file=file, is_owner=is_owner, file_content=file_content)
+@app.route('/files/download/<int:file_id>')
+@login_required
+def download_file(file_id):
+    """Download a file"""
+    file = File.query.get_or_404(file_id)
+    
+    # Check if user is owner or file is shared with them
+    is_owner = file.user_id == current_user.id
+    is_shared = Share_File.query.filter_by(
+        file_id=file_id, 
+        email=current_user.email
+    ).first() is not None
+    
+    if not (is_owner or is_shared):
+        flash('You do not have permission to download this file.', 'danger')
+        return redirect(url_for('files_list'))
+    
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    
+    if not os.path.exists(file_path):
+        flash('File not found on server.', 'danger')
+        return redirect(url_for('files_list'))
+    
+    return send_file(
+        file_path,
+        as_attachment=True,
+        download_name=file.original_filename
+    )
 
 
 @app.route('/files/serve/<int:file_id>')
 @login_required
 def serve_file(file_id):
-    """Serve the file for viewing (not downloading)"""
+    """Serve a file for preview (inline display)"""
     file = File.query.get_or_404(file_id)
     
-    # Check permission
-    if file.user_id != current_user.id and not current_user.is_admin:
-        flash('You do not have permission to access this file.', 'danger')
-        return redirect(url_for('files_list'))
+    # Check if user is owner or file is shared with them
+    is_owner = file.user_id == current_user.id
+    is_shared = Share_File.query.filter_by(
+        file_id=file_id, 
+        email=current_user.email
+    ).first() is not None
     
-    try:
-        # Serve file without forcing download
-        return send_from_directory(
-            directory=os.path.dirname(file.file_path),
-            path=os.path.basename(file.file_path),
-            as_attachment=False  # This allows viewing in browser
-        )
-    except FileNotFoundError:
-        flash('File not found!', 'danger')
-        return redirect(url_for('files_list'))
-
-@app.route('/files/download/<int:file_id>')
-@login_required
-def download_file(file_id):
-    """Serve the file for download"""
-    file = File.query.get_or_404(file_id)
+    if not (is_owner or is_shared):
+        abort(403)  # Forbidden
     
-    # Check permission
-    if file.user_id != current_user.id and not current_user.is_admin:
-        flash('You do not have permission to access this file.', 'danger')
-        return redirect(url_for('files_list'))
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
     
-    try:
-        # Force download
-        return send_from_directory(
-            directory=os.path.dirname(file.file_path),
-            path=os.path.basename(file.file_path),
-            as_attachment=True  # Forces the download
-        )
-    except FileNotFoundError:
-        flash('File not found!', 'danger')
-        return redirect(url_for('files_list'))
-
+    if not os.path.exists(file_path):
+        abort(404)  # Not found
+    
+    return send_file(
+        file_path,
+        mimetype=file.mime_type,
+        as_attachment=False,
+        download_name=file.original_filename
+    )
 
 @app.route('/files/<int:file_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -475,7 +457,6 @@ def edit_file(file_id):
     
     return render_template('edit_file.html', form=form, file=file)
 
-
 @app.route('/files/<int:file_id>/delete', methods=['POST'])
 @login_required
 def delete_file(file_id):
@@ -503,6 +484,209 @@ def delete_file(file_id):
         print(f"Error deleting file: {e}")
         flash('An error occurred while deleting the file.', 'danger')
         return redirect(url_for('view_file', file_id=file_id))
+
+@app.route('/files/<int:file_id>/share', methods=['POST'])
+@login_required
+def share_file(file_id):
+    file = File.query.get_or_404(file_id)
+    if file.user_id != current_user.id:
+        return jsonify({'success': False, 'message': 'You do not have permission to share this file.'}), 403
+    email_data = request.json.get('email')
+    if not email_data:
+        return jsonify({'success': False, 'message': 'Email is required.'}), 400
+    user = User.query.filter_by(email=email_data).first()
+    if not user:
+        return jsonify({'success': False, 'message': 'This email is not registered in the system.'}), 400
+    if email_data == current_user.email:
+        return jsonify({'success': False, 'message': 'You cannot share a file with yourself.'}), 400
+
+    #Checking if file already shared
+    existing_share = Share_File.query.filter_by(
+        email=email_data, 
+        file_id=file_id
+    ).first()
+    
+    if existing_share:
+        return jsonify({'success': False, 'message': 'File is already shared with this user.'}), 400
+    
+    try:
+        share = Share_File(
+            email=email_data,
+            file_id=file_id
+        )
+        db.session.add(share)
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'File shared successfully with {email_data}!'})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error sharing file: {e}")
+        return jsonify({'success': False, 'message': 'An error occurred while sharing the file.'}), 500
+
+@app.route('/files/<int:file_id>/get-shares', methods=['GET'])
+@login_required
+def get_shares(file_id):
+    """Get list of shares for a file"""
+    file = File.query.get_or_404(file_id)
+    if file.user_id != current_user.id:
+        return jsonify({'success': False, 'message': 'You do not have permission to view shares.'}), 403
+    
+    shares = Share_File.query.filter_by(file_id=file_id).all()
+    
+    shares_data = [{
+        'id': share.id,
+        'email': share.email,
+        'shared_at': share.shared_at.isoformat()
+    } for share in shares]
+    
+    return jsonify({'success': True, 'shares': shares_data})
+
+@app.route('/files/<int:file_id>/manage-shares', methods=['GET'])
+@login_required
+def manage_shares(file_id):
+    """View and manage who has access to a file"""
+    file = File.query.get_or_404(file_id)
+    
+    # Check if current user is the owner
+    if file.user_id != current_user.id:
+        flash('You do not have permission to manage shares for this file.', 'danger')
+        return redirect(url_for('files_list'))
+    
+    # Get all shares for this file
+    shares = Share_File.query.filter_by(file_id=file_id).all()
+    
+    return render_template('manage_shares.html', file=file, shares=shares)
+
+
+@app.route('/files/<int:file_id>/remove-share/<int:share_id>', methods=['POST'])
+@login_required
+def remove_share(file_id, share_id):
+    """Remove a share from a file"""
+    file = File.query.get_or_404(file_id)
+    share = Share_File.query.get_or_404(share_id)
+    
+    if file.user_id != current_user.id:
+        return jsonify({'success': False, 'message': 'You do not have permission to remove this share.'}), 403
+    
+    if share.file_id != file_id:
+        return jsonify({'success': False, 'message': 'Invalid share.'}), 400
+    
+    try:
+        email = share.email
+        db.session.delete(share)
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Removed access for {email}'})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error removing share: {e}")
+        return jsonify({'success': False, 'message': 'An error occurred while removing the share.'}), 500
+
+#password reset routes
+def send_reset_email(user_email, token):
+    """Send password reset email"""
+    reset_url = url_for('reset_password_confirm', token=token, _external=True)
+    
+    msg = Message('Password Reset Request',
+                  recipients=[user_email])
+    
+    msg.body = f'''To reset your password, visit the following link:
+{reset_url}
+
+If you did not make this request, simply ignore this email and no changes will be made.
+
+This link will expire in 1 hour.
+'''
+    
+    msg.html = f'''
+    <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #667eea;">Password Reset Request</h2>
+        <p>You requested to reset your password. Click the button below to proceed:</p>
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{reset_url}" 
+               style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                      color: white; 
+                      padding: 12px 30px; 
+                      text-decoration: none; 
+                      border-radius: 25px;
+                      display: inline-block;">
+                Reset Password
+            </a>
+        </div>
+        <p style="color: #666;">Or copy and paste this link:</p>
+        <p style="background: #f5f5f5; padding: 10px; word-break: break-all;">{reset_url}</p>
+        <p style="color: #999; font-size: 12px; margin-top: 30px;">
+            If you did not request this, please ignore this email. This link will expire in 1 hour.
+        </p>
+    </div>
+    '''
+    
+    try:
+        mail.send(msg)
+        return True
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return False
+
+
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password_request():
+    """Request password reset"""
+    if current_user.is_authenticated:
+        return redirect(url_for('files_list'))
+    
+    form = ResetPasswordRequestForm()
+    
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        
+        if user:
+            # Generate token
+            token = serializer.dumps(user.email, salt='password-reset-salt')
+            
+            # Send email
+            if send_reset_email(user.email, token):
+                flash('A password reset link has been sent to your email.', 'success')
+            else:
+                flash('Failed to send reset email. Please try again.', 'danger')
+        else:
+            # Don't reveal if user exists or not for security
+            flash('If that email exists, a reset link has been sent.', 'info')
+        
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password_request.html', form=form)
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password_confirm(token):
+    """Confirm password reset with token"""
+    if current_user.is_authenticated:
+        return redirect(url_for('files_list'))
+    
+    try:
+        # Verify token (expires after 1 hour = 3600 seconds)
+        email = serializer.loads(token, salt='password-reset-salt', max_age=3600)
+    except SignatureExpired:
+        flash('The password reset link has expired. Please request a new one.', 'danger')
+        return redirect(url_for('reset_password_request'))
+    except BadSignature:
+        flash('Invalid password reset link.', 'danger')
+        return redirect(url_for('reset_password_request'))
+    
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('reset_password_request'))
+    
+    form = ResetPasswordForm()
+    
+    if form.validate_on_submit():
+        # Use set_password method instead of direct assignment
+        user.set_password(form.password.data)
+        db.session.commit()
+        flash('Your password has been reset successfully! You can now log in.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password_confirm.html', form=form, token=token)
 
 if __name__ == '__main__':
     app.run(debug=True)

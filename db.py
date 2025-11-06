@@ -85,3 +85,16 @@ class File(db.Model):
     def __repr__(self):
         return f"File('{self.filename}', owner='{self.owner.username}')"
 
+class Share_File(db.Model):
+    __tablename__ = "share"
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), nullable=False)
+    file_id = db.Column(db.Integer, db.ForeignKey('files.id'), nullable=False)
+    shared_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    #relationship
+    file = db.relationship('File', backref='shares')
+
+    def __repr__(self):
+        return f"Share(email='{self.email}', file_id={self.file_id})"
