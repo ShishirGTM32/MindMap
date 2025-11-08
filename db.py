@@ -73,11 +73,14 @@ class File(db.Model):
     filename = db.Column(db.String(255), nullable=False)
     original_filename = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
-    file_path = db.Column(db.String(500), nullable=False)
+    file_path = db.Column(db.String(500), nullable=True)
     file_size = db.Column(db.Integer)  # in bytes
     mime_type = db.Column(db.String(100))
     upload_date = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    b2_file_id = db.Column(db.String(500), nullable=False)
+    b2_file_name = db.Column(db.String(500), nullable=False)
+    download_url = db.Column(db.String(1000))
     
     # Relationship
     owner = db.relationship('User', backref=db.backref('files', lazy=True, cascade='all, delete-orphan'))

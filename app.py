@@ -13,10 +13,24 @@ from urllib.parse import urlparse, urljoin
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from cloud import *
+
+
 app = Flask(__name__)
 
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
+
 # Configuration
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise ValueError("No SECRET_KEY set for Flask application")
+app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -93,6 +107,7 @@ def register():
     return render_template('register.html', form=form)
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def login():
     """User login"""
     if current_user.is_authenticated:
@@ -291,73 +306,58 @@ def files_list():
                          other_files=other_files)
 
 @app.route('/files/upload', methods=['GET', 'POST'])
+@limiter.limit("10 per hour")
 @login_required
 def upload_file():
-    """Upload a new file"""
+    """Upload a new file to Backblaze B2"""
     form = FileUploadForm()
     
     if form.validate_on_submit():
         file = form.file.data
         
-        if file:
-            original_filename = secure_filename(file.filename)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"{timestamp}_{original_filename}"
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(file_path)
-            file_size = os.path.getsize(file_path)
-            mime_type = mimetypes.guess_type(file_path)[0]
-            new_file = File(
-                filename=filename,
-                original_filename=original_filename,
-                description=form.description.data,
-                file_path=file_path,
-                file_size=file_size,
-                mime_type=mime_type,
-                user_id=current_user.id
-            )
-            
-            try:
-                db.session.add(new_file)
-                db.session.commit()
-                flash('File uploaded successfully!', 'success')
-                return redirect(url_for('files_list'))
-            except Exception as e:
-                db.session.rollback()
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                print(f"Error uploading file: {e}")
-                flash('An error occurred while uploading the file.', 'danger')
+        # Validate and upload
+        success, message, file_data = B2FileManager.validate_and_upload(
+            file, 
+            current_user.id
+        )
+        
+        if not success:
+            flash(message, 'danger')
+            return redirect(url_for('upload_file'))
+        
+        # Save to database
+        new_file = File(
+            filename=file_data['b2_file_name'],
+            original_filename=file_data['original_filename'],
+            description=form.description.data,
+            file_path=file_data['download_url'],  # Store download URL
+            file_size=file_data['file_size'],
+            mime_type=file_data['mime_type'],
+            user_id=current_user.id,
+            b2_file_id=file_data['b2_file_id'],
+            b2_file_name=file_data['b2_file_name'],
+            download_url=file_data['download_url']
+        )
+        
+        try:
+            db.session.add(new_file)
+            db.session.commit()
+            flash('File uploaded successfully!', 'success')
+            return redirect(url_for('files_list'))
+        except Exception as e:
+            db.session.rollback()
+            # Cleanup: delete from B2 if database save fails
+            B2FileManager.delete_file(file_data['b2_file_id'], file_data['b2_file_name'])
+            print(f"Error saving to database: {e}")
+            flash('An error occurred while saving the file.', 'danger')
     
     return render_template('upload_file.html', form=form)
-
-@app.route('/files/view/<int:file_id>')
-@login_required
-def view_file(file_id):
-    """View a specific file"""
-    file = File.query.get_or_404(file_id)
-    
-    # Check if user is owner or file is shared with them
-    is_owner = file.user_id == current_user.id
-    is_shared = Share_File.query.filter_by(
-        file_id=file_id, 
-        email=current_user.email
-    ).first() is not None
-    
-    if not (is_owner or is_shared):
-        flash('You do not have permission to view this file.', 'danger')
-        return redirect(url_for('files_list'))
-    
-    return render_template('view_file.html', file=file, is_owner=is_owner)
-
 
 @app.route('/files/download/<int:file_id>')
 @login_required
 def download_file(file_id):
-    """Download a file"""
     file = File.query.get_or_404(file_id)
     
-    # Check if user is owner or file is shared with them
     is_owner = file.user_id == current_user.id
     is_shared = Share_File.query.filter_by(
         file_id=file_id, 
@@ -368,26 +368,21 @@ def download_file(file_id):
         flash('You do not have permission to download this file.', 'danger')
         return redirect(url_for('files_list'))
     
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    auth_data = B2FileManager.get_download_authorization(file.b2_file_name, duration_seconds=3600)
     
-    if not os.path.exists(file_path):
-        flash('File not found on server.', 'danger')
+    if not auth_data:
+        flash('Error generating download link.', 'danger')
         return redirect(url_for('files_list'))
     
-    return send_file(
-        file_path,
-        as_attachment=True,
-        download_name=file.original_filename
-    )
+    url_with_auth = f"{auth_data['url']}?Authorization={auth_data['authorization_token']}"
+    return redirect(url_with_auth)
 
 
 @app.route('/files/serve/<int:file_id>')
 @login_required
 def serve_file(file_id):
-    """Serve a file for preview (inline display)"""
     file = File.query.get_or_404(file_id)
     
-    # Check if user is owner or file is shared with them
     is_owner = file.user_id == current_user.id
     is_shared = Share_File.query.filter_by(
         file_id=file_id, 
@@ -395,78 +390,90 @@ def serve_file(file_id):
     ).first() is not None
     
     if not (is_owner or is_shared):
-        abort(403)  # Forbidden
+        abort(403)
     
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    auth_data = B2FileManager.get_download_authorization(file.b2_file_name, duration_seconds=3600)
     
-    if not os.path.exists(file_path):
-        abort(404)  # Not found
+    if not auth_data:
+        abort(404)
     
-    return send_file(
-        file_path,
-        mimetype=file.mime_type,
-        as_attachment=False,
-        download_name=file.original_filename
-    )
+    url_with_auth = f"{auth_data['url']}?Authorization={auth_data['authorization_token']}"
+    return redirect(url_with_auth)
 
-@app.route('/files/<int:file_id>/edit', methods=['GET', 'POST'])
+
+@app.route('/files/get-details/<int:file_id>')
 @login_required
-def edit_file(file_id):
-    """Edit file details (owner only)"""
+def get_file_details(file_id):
     file = File.query.get_or_404(file_id)
     
-    # Check if current user is the owner
-    if file.user_id != current_user.id:
-        flash('You do not have permission to edit this file.', 'danger')
-        return redirect(url_for('view_file', file_id=file_id))
+    is_owner = file.user_id == current_user.id
+    is_shared = Share_File.query.filter_by(
+        file_id=file_id, 
+        email=current_user.email
+    ).first() is not None
     
-    form = FileEditForm()
+    if not (is_owner or is_shared):
+        return jsonify({'success': False, 'message': 'Permission denied'}), 403
     
-    if form.validate_on_submit():
-        try:
-            # Update filename if changed
-            new_filename = secure_filename(form.filename.data)
-            if new_filename != file.original_filename:
-                # Create new filename with timestamp
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                new_full_filename = f"{timestamp}_{new_filename}"
-                
-                # Rename the physical file
-                new_path = os.path.join(app.config['UPLOAD_FOLDER'], new_full_filename)
-                if os.path.exists(file.file_path):
-                    os.rename(file.file_path, new_path)
-                    file.file_path = new_path
-                    file.filename = new_full_filename
-                
-                file.original_filename = new_filename
-            
-            file.description = form.description.data
-            db.session.commit()
-            
-            flash('File updated successfully!', 'success')
-            return redirect(url_for('view_file', file_id=file.id))
-        except Exception as e:
-            db.session.rollback()
-            print(f"Error editing file: {e}")
-            flash('An error occurred while updating the file.', 'danger')
+    auth_data = B2FileManager.get_download_authorization(file.b2_file_name, duration_seconds=3600)
     
-    # Pre-populate form
-    if request.method == 'GET':
-        form.filename.data = file.original_filename
-        form.description.data = file.description
+    if not auth_data:
+        return jsonify({'success': False, 'message': 'Error generating download link'}), 500
     
-    return render_template('edit_file.html', form=form, file=file)
+    url_with_auth = f"{auth_data['url']}?Authorization={auth_data['authorization_token']}"
+    
+    response = jsonify({
+        'success': True,
+        'secure_url': url_with_auth,
+        'original_filename': file.original_filename,
+        'mime_type': file.mime_type,
+        'file_size': file.file_size,
+        'upload_date': file.upload_date.isoformat()
+    })
+    
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    
+    print(f"Serving file details for: {file.original_filename}")
+    print(f"Authorized URL generated")
+    print(f"MIME: {file.mime_type}")
+    
+    return response
 
 @app.route('/files/<int:file_id>/delete', methods=['POST'])
 @login_required
 def delete_file(file_id):
-    """Delete a file (owner only)"""
+    """Delete a file from B2 and database"""
+    file = File.query.get_or_404(file_id)
+    
+    if file.user_id != current_user.id:
+        flash('You do not have permission to delete this file.', 'danger')
+        return redirect(url_for('file_list', file_id=file_id))
+    
+    try:
+        # Delete from B2
+        B2FileManager.delete_file(file.b2_file_id, file.b2_file_name)
+        
+        # Delete from database
+        db.session.delete(file)
+        db.session.commit()
+        
+        flash('File deleted successfully!', 'success')
+        return redirect(url_for('files_list'))
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting file: {e}")
+        flash('An error occurred while deleting the file.', 'danger')
+        return redirect(url_for('files_list'))
+
+@app.route('/files/<int:file_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_file(file_id):
     file = File.query.get_or_404(file_id)
     
     # Check if current user is the owner
     if file.user_id != current_user.id:
         flash('You do not have permission to delete this file.', 'danger')
-        return redirect(url_for('view_file', file_id=file_id))
+        return redirect(url_for('files_list'))
     
     try:
         # Delete physical file
@@ -483,7 +490,7 @@ def delete_file(file_id):
         db.session.rollback()
         print(f"Error deleting file: {e}")
         flash('An error occurred while deleting the file.', 'danger')
-        return redirect(url_for('view_file', file_id=file_id))
+        return redirect(url_for('files_list'))
 
 @app.route('/files/<int:file_id>/share', methods=['POST'])
 @login_required
