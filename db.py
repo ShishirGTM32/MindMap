@@ -1,43 +1,84 @@
+# from flask_sqlalchemy import SQLAlchemy
+# from dotenv import load_dotenv
+# from flask_login import UserMixin
+# from datetime import datetime
+# from flask_migrate import Migrate
+# import os
+# import pymysql
+# from werkzeug.security import generate_password_hash, check_password_hash
+# from urllib.parse import quote_plus
+
+# # Install pymysql to act as MySQLdb
+# pymysql.install_as_MySQLdb()
+
+# # Load environment variables from .env file
+# load_dotenv()
+
+# # Initialize the database object
+# db = SQLAlchemy()
+# migrate = Migrate()
+# # Database configuration function
+# def init_app(app):
+#     # Get environment variables
+#     mysql_user = os.getenv('MYSQL_USER')
+#     mysql_password = os.getenv('MYSQL_PASSWORD')
+#     mysql_host = os.getenv('MYSQL_HOST')
+#     mysql_db = os.getenv('MYSQL_DB')
+
+#     encoded_password = quote_plus(mysql_password)
+
+#     # Check if any environment variables are missing
+#     if not mysql_user or not encoded_password or not mysql_host or not mysql_db:
+#         raise ValueError("Missing one or more required environment variables: MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DB")
+
+#     # Set Flask app's database URI
+#     app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql://{mysql_user}:{encoded_password}@{mysql_host}/{mysql_db}"
+#     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Disable modification tracking to save resources
+
+#     # Initialize the SQLAlchemy object with the app
+#     db.init_app(app)
+#     migrate.init_app(app, db)
+
+
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from flask_login import UserMixin
 from datetime import datetime
 from flask_migrate import Migrate
 import os
-import pymysql
 from werkzeug.security import generate_password_hash, check_password_hash
-from urllib.parse import quote_plus
 
-# Install pymysql to act as MySQLdb
-pymysql.install_as_MySQLdb()
-
-# Load environment variables from .env file
 load_dotenv()
 
-# Initialize the database object
 db = SQLAlchemy()
 migrate = Migrate()
-# Database configuration function
+
 def init_app(app):
-    # Get environment variables
-    mysql_user = os.getenv('MYSQL_USER')
-    mysql_password = os.getenv('MYSQL_PASSWORD')
-    mysql_host = os.getenv('MYSQL_HOST')
-    mysql_db = os.getenv('MYSQL_DB')
-
-    encoded_password = quote_plus(mysql_password)
-
-    # Check if any environment variables are missing
-    if not mysql_user or not encoded_password or not mysql_host or not mysql_db:
-        raise ValueError("Missing one or more required environment variables: MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DB")
-
-    # Set Flask app's database URI
-    app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql://{mysql_user}:{encoded_password}@{mysql_host}/{mysql_db}"
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Disable modification tracking to save resources
-
-    # Initialize the SQLAlchemy object with the app
+    database_url = os.getenv('DATABASE_URL')
+    
+    if not database_url:
+        raise ValueError("Missing DATABASE_URL environment variable")
+    
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_size': 10,
+        'pool_recycle': 3600,
+        'pool_pre_ping': True,
+        'max_overflow': 20,
+        'connect_args': {
+            'connect_timeout': 10,
+        }
+    }
+    
     db.init_app(app)
     migrate.init_app(app, db)
+    
+    with app.app_context():
+        db.create_all()
 
 class User(UserMixin,db.Model):
     __tablename__ = "users"
