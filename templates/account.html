@@ -5,7 +5,7 @@
 <style>
     body {
         font-family: 'Inter', sans-serif;
-        background: #e9ecef; /* light grey background instead of purple gradient */
+        background: #e9ecef;
     }
 
     .dashboard-container {
@@ -16,7 +16,7 @@
     }
 
     .dashboard-card {
-        background: #f5f5f5; /* light grey card */
+        background: #f5f5f5;
         border-radius: 20px;
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
         border: 1px solid #ced4da;
@@ -29,15 +29,11 @@
     }
 
     .dashboard-header {
-        background: #6c757d; /* grey header */
+        background: #6c757d;
         color: white;
         padding: 2.5rem 2rem 1.5rem;
         text-align: center;
         position: relative;
-    }
-
-    .dashboard-header::before {
-        border-top: 20px solid #5a6268; /* darker grey */
     }
 
     .dashboard-header h2 {
@@ -58,7 +54,7 @@
     }
 
     .account-details {
-        background: #dee2e6; /* greyish section */
+        background: #dee2e6;
         border-radius: 16px;
         padding: 1.5rem;
         margin-bottom: 2rem;
@@ -71,11 +67,11 @@
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        color: #495057; /* dark grey text */
+        color: #495057;
     }
 
     .account-details p i {
-        color: #6c757d; /* grey icon */
+        color: #6c757d;
         width: 20px;
     }
 
@@ -83,20 +79,12 @@
         border-radius: 12px;
         padding: 0.75rem 1.5rem;
         font-weight: 600;
-        border: 2px solid #6c757d; /* grey border */
-        color: #495057; /* grey text */
+        border: 2px solid #6c757d;
+        color: #495057;
         transition: all 0.3s ease;
         position: relative;
         overflow: hidden;
-        background: #f5f5f5; /* grey button background */
-    }
-
-    .btn-modern::before {
-        background: rgba(255, 255, 255, 0.2);
-    }
-
-    .btn-modern:hover::before {
-        left: 100%;
+        background: #f5f5f5;
     }
 
     .btn-modern:hover {
@@ -117,19 +105,6 @@
         color: white !important;
     }
 
-    .btn-logout {
-    background: #343a40; 
-    border-color: #343a40;
-    color: white;
-}
-
-    .btn-logout:hover {
-        background: #495057; 
-        border-color: #495057;
-        color: white;
-    }
-
-
     .toggle-buttons {
         display: flex;
         gap: 1rem;
@@ -144,6 +119,7 @@
         color: #6c757d;
         flex: 1;
         min-width: 200px;
+        cursor: pointer;
     }
 
     .btn-toggle:hover,
@@ -160,16 +136,22 @@
         margin-top: 2rem;
         border: 1px solid #ced4da;
         display: none;
-        animation: fadeIn 0.3s ease;
     }
 
     .form-section.active {
         display: block;
+        animation: fadeIn 0.3s ease;
     }
 
     @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
+        from { 
+            opacity: 0; 
+            transform: translateY(20px); 
+        }
+        to { 
+            opacity: 1; 
+            transform: translateY(0); 
+        }
     }
 
     .form-section h5 {
@@ -210,6 +192,7 @@
         padding: 0.9rem 2rem;
         font-weight: 600;
         color: white;
+        transition: all 0.3s ease;
     }
 
     .btn-submit:hover {
@@ -217,6 +200,11 @@
         transform: translateY(-2px);
         box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
         color: white;
+    }
+
+    .alert-custom {
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
     }
 
     @media (max-width: 768px) {
@@ -240,142 +228,256 @@
 {% endblock %}
 
 {% block content %}
-    <div class="container dashboard-container">
-        <div class="row justify-content-center w-100">
-            <div class="col-lg-8 col-md-10">
-                <div class="dashboard-card">
-                    <div class="dashboard-header">
-                        <h2><i class="fas fa-user-circle me-2"></i>Account Dashboard</h2>
-                        <p>Manage your personal account settings and security</p>
+<div class="container dashboard-container">
+    <div class="row justify-content-center w-100">
+        <div class="col-lg-8 col-md-10">
+            <div class="dashboard-card">
+                <div class="dashboard-header">
+                    <h2><i class="fas fa-user-circle me-2"></i>Account Dashboard</h2>
+                    <p>Manage your personal account settings and security</p>
+                </div>
+                <div class="dashboard-body">
+                    
+                    <!-- Form Errors -->
+                    {% if form and form.errors %}
+                        <div id="error-alert" class="alert alert-danger alert-custom" role="alert" data-has-errors="true">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            {% for field, errors in form.errors.items() %}
+                                {% for error in errors %}
+                                    <span data-error-field="{{ field }}">{{ error }}</span><br>
+                                {% endfor %}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <!-- Flash Message Errors (fallback) -->
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                {% if category == 'error' or category == 'danger' %}
+                                    <div class="alert alert-danger alert-custom" role="alert" data-flash-error="true">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <span>{{ message }}</span>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <!-- Account Info -->
+                    <div class="account-details">
+                        <p><i class="fas fa-user"></i><strong>Username:</strong> {{ user.username }}</p>
+                        <p><i class="fas fa-envelope"></i><strong>Email:</strong> {{ user.email }}</p>
+                        <div class="text-center mt-3">
+                            <a href="{{ url_for('logout') }}" class="btn btn-modern btn-logout">
+                                <i class="fas fa-sign-out-alt me-1"></i> Logout
+                            </a>
+                        </div>
                     </div>
-                    <div class="dashboard-body">
-                        <!-- Account Info -->
-                        <div class="account-details">
-                            <p><i class="fas fa-user"></i><strong>Username:</strong> {{ user.username }}</p>
-                            <p><i class="fas fa-envelope"></i><strong>Email:</strong> {{ user.email }}</p>
-                            <div class="text-center mt-3">
-                                <a href="{{ url_for('logout') }}" class="btn btn-modern btn-logout">
-                                    <i class="fas fa-sign-out-alt me-1"></i> Logout
-                                </a>
+
+                    <!-- Toggle Buttons -->
+                    <div class="toggle-buttons">
+                        <button class="btn btn-modern btn-toggle" onclick="toggleSection('usernameSection', this)">
+                            <i class="fas fa-user-edit me-1"></i>Change Username
+                        </button>
+                        <button class="btn btn-modern btn-toggle" onclick="toggleSection('passwordSection', this)">
+                            <i class="fas fa-lock me-1"></i>Change Password
+                        </button>
+                        <button class="btn btn-modern btn-toggle" onclick="toggleSection('emailSection', this)">
+                            <i class="fas fa-envelope me-1"></i>Change Email
+                        </button>
+                    </div>
+
+                    <!-- Change Username Section -->
+                    <div id="usernameSection" class="form-section">
+                        <h5><i class="fas fa-user-edit me-2"></i>Update Username</h5>
+                        <form method="POST" action="{{ url_for('change_username') }}">
+                            <div class="form-floating">
+                                <input type="text" name="username" id="newUsername" class="form-control"
+                                    placeholder="Enter new username" required>
+                                <label for="newUsername"><i class="fas fa-at me-2"></i>New Username</label>
                             </div>
-                        </div>
-
-                        <!-- Toggle Buttons for Sections -->
-                        <div class="toggle-buttons">
-                            <button class="btn btn-modern btn-toggle" onclick="toggleSection('usernameSection', this)">
-                                <i class="fas fa-user-edit me-1"></i>Change Username
+                            <button type="submit" class="btn btn-submit">
+                                <i class="fas fa-save me-1"></i>Update Username
                             </button>
-                            <button class="btn btn-modern btn-toggle" onclick="toggleSection('passwordSection', this)">
-                                <i class="fas fa-lock me-1"></i>Change Password
-                            </button>
-                            <button class="btn btn-modern btn-toggle" onclick="toggleSection('emailSection', this)">
-                                <i class="fas fa-envelope me-1"></i>Change Email
-                            </button>
-                        </div>
-
-                        <!-- Change Username Section -->
-                        <div id="usernameSection" class="form-section">
-                            <h5><i class="fas fa-user-edit me-2"></i>Update Username</h5>
-                            <form method="POST" action="{{ url_for('change_username') }}">
-                                <div class="form-floating">
-                                    <input type="text" name="username" id="newUsername" class="form-control"
-                                        placeholder="Enter new username" required>
-                                    <label for="newUsername"><i class="fas fa-at me-2"></i>New Username</label>
-                                </div>
-                                <button type="submit" class="btn btn-submit">
-                                    <i class="fas fa-save me-1"></i>Update Username
-                                </button>
-                            </form>
-                        </div>
-
-                        <!-- Change Password Section -->
-                        <div id="passwordSection" class="form-section">
-                            <h5><i class="fas fa-lock me-2"></i>Update Password</h5>
-                            <form method="POST" action="{{ url_for('change_password') }}">
-                                <div class="form-floating">
-                                    <input type="password" name="old_password" id="oldPassword" class="form-control" required>
-                                    <label for="oldPassword"><i class="fas fa-key me-2"></i>Current Password</label>
-                                </div>
-                                <div class="form-floating">
-                                    <input type="password" name="new_password1" id="newPassword1" class="form-control" required>
-                                    <label for="newPassword1"><i class="fas fa-lock me-2"></i>New Password</label>
-                                </div>
-                                <div class="form-floating">
-                                    <input type="password" name="new_password2" id="newPassword2" class="form-control" required>
-                                    <label for="newPassword2"><i class="fas fa-lock me-2"></i>Confirm New Password</label>
-                                </div>
-                                <button type="submit" class="btn btn-submit">
-                                    <i class="fas fa-shield-alt me-1"></i>Update Password
-                                </button>
-                            </form>
-                        </div>
-
-                        <!-- Change Email Section -->
-                        <div id="emailSection" class="form-section">
-                            <h5><i class="fas fa-envelope me-2"></i>Update Email</h5>
-                            <form method="POST" action="{{ url_for('change_email') }}">
-                                <div class="form-floating">
-                                    <input type="email" name="email" id="newEmail" class="form-control"
-                                        placeholder="Enter new email" required>
-                                    <label for="newEmail"><i class="fas fa-envelope me-2"></i>New Email Address</label>
-                                </div>
-                                <button type="submit" class="btn btn-submit">
-                                    <i class="fas fa-paper-plane me-1"></i>Update Email
-                                </button>
-                            </form>
-                        </div>
+                        </form>
                     </div>
+
+                    <!-- Change Password Section -->
+                    <div id="passwordSection" class="form-section">
+                        <h5><i class="fas fa-lock me-2"></i>Update Password</h5>
+                        <form method="POST" action="{{ url_for('change_password') }}">
+                            <div class="form-floating">
+                                <input type="password" name="old_password" id="oldPassword" class="form-control" required>
+                                <label for="oldPassword"><i class="fas fa-key me-2"></i>Current Password</label>
+                            </div>
+                            <div class="form-floating">
+                                <input type="password" name="new_password1" id="newPassword1" class="form-control" required>
+                                <label for="newPassword1"><i class="fas fa-lock me-2"></i>New Password</label>
+                            </div>
+                            <div class="form-floating">
+                                <input type="password" name="new_password2" id="newPassword2" class="form-control" required>
+                                <label for="newPassword2"><i class="fas fa-lock me-2"></i>Confirm New Password</label>
+                            </div>
+                            <button type="submit" class="btn btn-submit">
+                                <i class="fas fa-shield-alt me-1"></i>Update Password
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Change Email Section -->
+                    <div id="emailSection" class="form-section">
+                        <h5><i class="fas fa-envelope me-2"></i>Update Email</h5>
+                        <form method="POST" action="{{ url_for('change_email') }}">
+                            <div class="form-floating">
+                                <input type="email" name="email" id="newEmail" class="form-control"
+                                    placeholder="Enter new email" required>
+                                <label for="newEmail"><i class="fas fa-envelope me-2"></i>New Email Address</label>
+                            </div>
+                            <button type="submit" class="btn btn-submit">
+                                <i class="fas fa-paper-plane me-1"></i>Update Email
+                            </button>
+                        </form>
+                    </div>
+
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Bootstrap JS Bundle (Popper included) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-        crossorigin="anonymous"></script>
+{% endblock %}
 
-    <script>
-        // Toggle visibility of sections
-        function toggleSection(sectionId, button) {
-            // Hide all sections
-            const sections = document.querySelectorAll('.form-section');
-            sections.forEach(section => {
-                section.classList.remove('active');
-            });
-            
-            // Remove active class from all buttons
-            const buttons = document.querySelectorAll('.btn-toggle');
-            buttons.forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // Show selected section
-            const section = document.getElementById(sectionId);
-            if (section) {
-                section.classList.add('active');
-                button.classList.add('active');
-            }
+{% block extra_js %}
+<script>
+    // Toggle visibility of form sections
+    function toggleSection(sectionId, button) {
+        // Hide all sections
+        document.querySelectorAll('.form-section').forEach(function(section) {
+            section.classList.remove('active');
+        });
+        
+        // Remove active state from all buttons
+        document.querySelectorAll('.btn-toggle').forEach(function(btn) {
+            btn.classList.remove('active');
+        });
+        
+        // Show selected section
+        var section = document.getElementById(sectionId);
+        if (section) {
+            section.classList.add('active');
+            button.classList.add('active');
         }
+    }
 
-        // Add interactive feedback for form validation
-        document.addEventListener('DOMContentLoaded', function() {
-            const forms = document.querySelectorAll('form');
-            
-            forms.forEach(form => {
-                const inputs = form.querySelectorAll('.form-control');
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check for form errors or flash messages
+        var alertBox = document.getElementById('error-alert');
+        var flashError = document.querySelector('[data-flash-error="true"]');
+        
+        // Handle both types of errors
+        var errorElement = alertBox || flashError;
+        
+        if (errorElement) {
+            // Fade out alert after 5 seconds
+            setTimeout(function() {
+                errorElement.style.transition = "opacity 0.5s ease";
+                errorElement.style.opacity = "0";
+                setTimeout(function() {
+                    errorElement.remove();
+                }, 500);
+            }, 5000);
+
+            var sectionId = null;
+            var targetInput = null;
+
+            // Try to get field name from error-field attribute
+            var firstError = errorElement.querySelector('span[data-error-field]');
+            if (firstError) {
+                var fieldName = firstError.getAttribute('data-error-field');
+                console.log('Error field name:', fieldName);
                 
-                inputs.forEach(input => {
-                    input.addEventListener('input', function() {
-                        if (this.checkValidity()) {
-                            this.classList.remove('is-invalid');
-                            this.classList.add('is-valid');
-                        } else {
-                            this.classList.remove('is-valid');
-                            this.classList.add('is-invalid');
+                // Map field names to their sections
+                var fieldToSection = {
+                    'username': 'usernameSection',
+                    'old_password': 'passwordSection',
+                    'new_password1': 'passwordSection',
+                    'new_password2': 'passwordSection',
+                    'password': 'passwordSection',
+                    'current_password': 'passwordSection',
+                    'email': 'emailSection'
+                };
+
+                sectionId = fieldToSection[fieldName];
+                targetInput = document.querySelector('[name="' + fieldName + '"]');
+            }
+            
+            // Fallback: analyze error message text
+            if (!sectionId) {
+                var errorText = errorElement.textContent.toLowerCase();
+                console.log('Analyzing error text:', errorText);
+                
+                if (errorText.includes('password') || errorText.includes('incorrect')) {
+                    sectionId = 'passwordSection';
+                    targetInput = document.querySelector('[name="old_password"]');
+                } else if (errorText.includes('email')) {
+                    sectionId = 'emailSection';
+                    targetInput = document.querySelector('[name="email"]');
+                } else if (errorText.includes('username')) {
+                    sectionId = 'usernameSection';
+                    targetInput = document.querySelector('[name="username"]');
+                }
+            }
+            
+            console.log('Section to open:', sectionId);
+            
+            if (sectionId) {
+                var section = document.getElementById(sectionId);
+                if (section) {
+                    // Remove active class from all sections and buttons
+                    document.querySelectorAll('.form-section').forEach(function(s) {
+                        s.classList.remove('active');
+                    });
+                    document.querySelectorAll('.btn-toggle').forEach(function(b) {
+                        b.classList.remove('active');
+                    });
+                    
+                    // Add active class to the error section
+                    section.classList.add('active');
+                    
+                    // Add active class to the corresponding button
+                    document.querySelectorAll('.btn-toggle').forEach(function(btn) {
+                        var onclick = btn.getAttribute('onclick');
+                        if (onclick && onclick.includes(sectionId)) {
+                            btn.classList.add('active');
                         }
                     });
-                });
-            });
-        });
-    </script>
+                    
+                    // If no specific input found, use first input in section
+                    if (!targetInput) {
+                        targetInput = section.querySelector('input');
+                    }
+                    
+                    if (targetInput) {
+                        // Wait for section animation, then focus and highlight
+                        setTimeout(function() {
+                            targetInput.focus();
+                            targetInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            
+                            // Add visual highlight
+                            targetInput.style.borderColor = '#dc3545';
+                            targetInput.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
+                            
+                            // Remove highlight when user starts typing
+                            targetInput.addEventListener('input', function() {
+                                this.style.borderColor = '';
+                                this.style.boxShadow = '';
+                            }, { once: true });
+                        }, 350);
+                    }
+                }
+            }
+        }
+    });
+</script>
 {% endblock %}

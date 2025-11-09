@@ -196,6 +196,30 @@
     }
 </style>
 
+<!-- Flash Messages -->
+    <div class="container mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
+            role="alert">
+            {% if category == 'success' %}
+            <i class="fas fa-check-circle"></i>
+            {% elif category == 'danger' or category == 'error' %}
+            <i class="fas fa-exclamation-triangle"></i>
+            {% elif category == 'info' %}
+            <i class="fas fa-info-circle"></i>
+            {% elif category == 'warning' %}
+            <i class="fas fa-exclamation-circle"></i>
+            {% endif %}
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+    </div>
+
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="mb-0" style="color: #202124; font-weight: 400;">
@@ -236,6 +260,10 @@
                                 title="Download" onclick="event.stopPropagation();">
                                 <i class="fas fa-download"></i>
                             </a>
+                            <button type="button" class="btn btn-sm btn-light" title="Rename"
+                                onclick="event.stopPropagation(); openRenameModal({{ file.id }}, '{{ file.original_filename }}');">
+                                <i class="fas fa-edit"></i>
+                            </button>
                             <button type="button" class="btn btn-sm btn-light" title="Share"
                                 onclick="event.stopPropagation(); openShareModal({{ file.id }}, '{{ file.original_filename }}');">
                                 <i class="fas fa-share-alt"></i>
@@ -282,6 +310,10 @@
                         title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download"></i>
                     </a>
+                    <button type="button" class="btn btn-sm btn-outline-info" title="Rename"
+                        onclick="event.stopPropagation(); openRenameModal({{ file.id }}, '{{ file.original_filename }}');">
+                        <i class="fas fa-edit"></i>
+                    </button>
                     <button type="button" class="btn btn-sm btn-outline-primary" title="Share"
                         onclick="event.stopPropagation(); openShareModal({{ file.id }}, '{{ file.original_filename }}');">
                         <i class="fas fa-share-alt"></i>
@@ -382,6 +414,41 @@
     </div>
 </div>
 
+<!-- Rename Modal -->
+<div class="modal fade" id="renameModal" tabindex="-1" role="dialog" aria-labelledby="renameModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document" style="max-width: 500px;">
+        <div class="modal-content">
+            <div class="modal-header"
+                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h5 class="modal-title" id="renameModalLabel">
+                    <i class="fas fa-edit"></i> Rename File
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="renameForm">
+                    <div class="mb-3">
+                        <label for="newFileName" class="form-label">File Name</label>
+                        <input type="text" class="form-control" id="newFileName" required 
+                            placeholder="Enter new file name">
+                        <div class="form-text">You can change the file name but keep the extension for proper file type recognition.</div>
+                        <div id="renameError" class="text-danger mt-2" style="display: none;"></div>
+                        <div id="renameSuccess" class="text-success mt-2" style="display: none;"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="renameSubmitBtn">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Share Modal -->
 <div class="modal fade" id="shareModal" tabindex="-1" role="dialog" aria-labelledby="shareModalLabel"
     aria-hidden="true">
@@ -478,6 +545,7 @@
 
 <script>
     let currentShareFileId = null;
+    let currentRenameFileId = null;
 
     // View toggle functionality
     document.getElementById('gridView').addEventListener('click', function () {
@@ -494,6 +562,119 @@
 
         document.querySelectorAll('.list-view').forEach(el => el.classList.add('active'));
         document.querySelectorAll('.grid-view').forEach(el => el.classList.remove('active'));
+    });
+
+    // Open rename modal
+    function openRenameModal(fileId, currentFileName) {
+        currentRenameFileId = fileId;
+        document.getElementById('newFileName').value = currentFileName;
+        document.getElementById('renameError').style.display = 'none';
+        document.getElementById('renameSuccess').style.display = 'none';
+
+        const renameModalElement = document.getElementById('renameModal');
+        let renameModal;
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            renameModal = new bootstrap.Modal(renameModalElement);
+            renameModal.show();
+        } else if (typeof $ !== 'undefined' && $.fn.modal) {
+            $(renameModalElement).modal('show');
+        }
+
+        // Focus on input after modal opens
+        setTimeout(() => {
+            const input = document.getElementById('newFileName');
+            input.focus();
+            // Select filename without extension
+            const lastDot = currentFileName.lastIndexOf('.');
+            if (lastDot > 0) {
+                input.setSelectionRange(0, lastDot);
+            } else {
+                input.select();
+            }
+        }, 300);
+    }
+
+    // Handle rename form submission
+    document.getElementById('renameSubmitBtn').addEventListener('click', async function () {
+        const newFileName = document.getElementById('newFileName').value.trim();
+        const errorDiv = document.getElementById('renameError');
+        const successDiv = document.getElementById('renameSuccess');
+        const submitBtn = this;
+
+        // Reset messages
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+
+        if (!newFileName) {
+            errorDiv.textContent = 'Please enter a file name.';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        // Disable button during submission
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+        try {
+            const response = await fetch(`/files/${currentRenameFileId}/edit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ filename: newFileName })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                successDiv.textContent = data.message;
+                successDiv.style.display = 'block';
+
+                // Update filename in the UI
+                document.querySelectorAll('.file-name, .file-list-name').forEach(el => {
+                    const card = el.closest('.file-card, .file-list-item');
+                    if (card && card.getAttribute('onclick')?.includes(`openFileModal(${currentRenameFileId}`)) {
+                        el.textContent = data.new_filename;
+                        el.setAttribute('title', data.new_filename);
+                        // Update onclick to reflect new filename
+                        const oldOnclick = card.getAttribute('onclick');
+                        const newOnclick = oldOnclick.replace(
+                            /openFileModal\(\d+,\s*'[^']*'/,
+                            `openFileModal(${currentRenameFileId}, '${data.new_filename}'`
+                        );
+                        card.setAttribute('onclick', newOnclick);
+                    }
+                });
+
+                // Close modal after 1 second
+                setTimeout(() => {
+                    const renameModalElement = document.getElementById('renameModal');
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                        const modal = bootstrap.Modal.getInstance(renameModalElement);
+                        if (modal) modal.hide();
+                    } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                        $(renameModalElement).modal('hide');
+                    }
+                }, 1000);
+            } else {
+                errorDiv.textContent = data.message;
+                errorDiv.style.display = 'block';
+            }
+        } catch (error) {
+            errorDiv.textContent = 'An error occurred while renaming the file.';
+            errorDiv.style.display = 'block';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+        }
+    });
+
+    // Allow Enter key to submit rename form
+    document.getElementById('newFileName').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('renameSubmitBtn').click();
+        }
     });
 
     // Open share modal and load existing shares
@@ -560,15 +741,66 @@
         } catch (error) {
             sharesList.innerHTML = `
                 <div class="alert alert-danger">
-                    Error loading shares
+                    <!-- Continuation from the error handler in loadShares function -->
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Error loading shares
                 </div>
             `;
         }
     }
 
+    // Remove a share
+    async function removeShare(fileId, shareId, email) {
+        if (!confirm(`Remove access for ${email}?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/files/${fileId}/remove-share/${shareId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Remove the share element from the DOM
+                const shareElement = document.getElementById(`share-${shareId}`);
+                if (shareElement) {
+                    shareElement.remove();
+                }
+
+                // Check if there are any shares left
+                const sharesList = document.getElementById('sharesList');
+                if (sharesList.children.length === 0) {
+                    sharesList.innerHTML = `
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-user-slash fa-2x mb-2"></i>
+                            <p class="mb-0">Not shared with anyone yet</p>
+                        </div>
+                    `;
+                }
+
+                // Show success message briefly
+                const successDiv = document.getElementById('shareSuccess');
+                successDiv.textContent = data.message;
+                successDiv.style.display = 'block';
+                setTimeout(() => {
+                    successDiv.style.display = 'none';
+                }, 3000);
+            } else {
+                alert(data.message || 'Failed to remove share');
+            }
+        } catch (error) {
+            alert('An error occurred while removing the share');
+        }
+    }
+
     // Handle share form submission
     document.getElementById('shareSubmitBtn').addEventListener('click', async function () {
-        const email = document.getElementById('shareEmail').value;
+        const email = document.getElementById('shareEmail').value.trim();
         const errorDiv = document.getElementById('shareError');
         const successDiv = document.getElementById('shareSuccess');
         const submitBtn = this;
@@ -579,6 +811,14 @@
 
         if (!email) {
             errorDiv.textContent = 'Please enter an email address.';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            errorDiv.textContent = 'Please enter a valid email address.';
             errorDiv.style.display = 'block';
             return;
         }
@@ -603,7 +843,7 @@
                 successDiv.style.display = 'block';
                 document.getElementById('shareEmail').value = '';
 
-                // Reload shares list
+                // Reload the shares list
                 await loadShares(currentShareFileId);
 
                 // Hide success message after 3 seconds
@@ -623,176 +863,120 @@
         }
     });
 
-    // Remove share function - made global
-    window.removeShare = async function (fileId, shareId, email) {
-        if (!confirm(`Remove access for ${email}?`)) {
-            return;
+    // Allow Enter key to submit share form
+    document.getElementById('shareEmail').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('shareSubmitBtn').click();
+        }
+    });
+
+    // Open file preview modal
+    async function openFileModal(fileId, fileName, mimeType) {
+        document.getElementById('modalFileName').textContent = fileName;
+        document.getElementById('modalDownloadBtn').href = `/files/${fileId}/download`;
+
+        const modalBody = document.getElementById('fileModalBody');
+        modalBody.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+
+        const fileModalElement = document.getElementById('fileModal');
+        let fileModal;
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            fileModal = new bootstrap.Modal(fileModalElement);
+            fileModal.show();
+        } else if (typeof $ !== 'undefined' && $.fn.modal) {
+            $(fileModalElement).modal('show');
         }
 
         try {
-            const response = await fetch(`/files/${fileId}/remove-share/${shareId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-
+            const response = await fetch(`/files/${fileId}/view`);
             const data = await response.json();
 
             if (data.success) {
-                // Remove from UI
-                const shareElement = document.getElementById(`share-${shareId}`);
-                if (shareElement) {
-                    shareElement.remove();
-                }
+                const content = data.content;
+                const fileType = data.file_type;
 
-                // Check if list is empty
-                const sharesList = document.getElementById('sharesList');
-                if (sharesList.children.length === 0) {
-                    sharesList.innerHTML = `
-                        <div class="text-center text-muted py-3">
-                            <i class="fas fa-user-slash fa-2x mb-2"></i>
-                            <p class="mb-0">Not shared with anyone yet</p>
+                if (fileType === 'image') {
+                    modalBody.innerHTML = `
+                        <div class="text-center">
+                            <img src="data:${mimeType};base64,${content}" 
+                                 alt="${fileName}" 
+                                 class="img-fluid"
+                                 style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        </div>
+                    `;
+                } else if (fileType === 'text') {
+                    modalBody.innerHTML = `
+                        <div class="container">
+                            <div class="card">
+                                <div class="card-body">
+                                    <pre style="white-space: pre-wrap; word-wrap: break-word; background: #f8f9fa; padding: 20px; border-radius: 8px; font-family: 'Courier New', monospace;">${escapeHtml(content)}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (fileType === 'pdf') {
+                    modalBody.innerHTML = `
+                        <div class="text-center">
+                            <embed src="data:application/pdf;base64,${content}" 
+                                   type="application/pdf" 
+                                   width="100%" 
+                                   height="800px"
+                                   style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        </div>
+                    `;
+                } else {
+                    modalBody.innerHTML = `
+                        <div class="container">
+                            <div class="alert alert-info text-center">
+                                <i class="fas fa-info-circle fa-3x mb-3"></i>
+                                <h5>Preview not available</h5>
+                                <p>This file type cannot be previewed. Please download the file to view it.</p>
+                            </div>
                         </div>
                     `;
                 }
-
-                // Show success message
-                const successDiv = document.getElementById('shareSuccess');
-                successDiv.textContent = data.message;
-                successDiv.style.display = 'block';
-                setTimeout(() => {
-                    successDiv.style.display = 'none';
-                }, 3000);
             } else {
-                alert(data.message);
+                modalBody.innerHTML = `
+                    <div class="container">
+                        <div class="alert alert-danger text-center">
+                            <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                            <h5>Error loading file</h5>
+                            <p>${data.message || 'Unable to load file preview'}</p>
+                        </div>
+                    </div>
+                `;
             }
         } catch (error) {
-            alert('An error occurred while removing the share.');
-        }
-    };
-
-
-
-    async function openFileModal(fileId, fileName, mimeType) {
-        const modalElement = document.getElementById('fileModal');
-        const modalBody = document.getElementById('fileModalBody');
-        const modalFileName = document.getElementById('modalFileName');
-        const modalDownloadBtn = document.getElementById('modalDownloadBtn');
-
-        modalFileName.textContent = fileName;
-
-        const downloadUrl = '/files/download/' + fileId;
-        modalDownloadBtn.href = downloadUrl;
-
-        // Show loading state
-        modalBody.innerHTML = `
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mt-3 text-muted">Loading preview...</p>
-        </div>
-    `;
-
-        // Open modal
-        let modal;
-        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-            modal = new bootstrap.Modal(modalElement);
-            modal.show();
-        } else if (typeof $ !== 'undefined' && $.fn.modal) {
-            $(modalElement).modal('show');
-        }
-
-        try {
-            // Fetch file details from the server to get Cloudinary URL
-            const response = await fetch(`/files/get-details/${fileId}`);
-            const data = await response.json();
-
-            if (!data.success) {
-                throw new Error(data.message || 'Failed to load file');
-            }
-
-            const fileUrl = data.secure_url; // Direct Cloudinary URL
-
-            // Render preview based on MIME type
-            if (mimeType === 'application/pdf') {
-                // PDF Preview - Use iframe with Cloudinary URL
-                modalBody.innerHTML = `
-                <div style="width: 100%; height: 100%; min-height: 800px;">
-                    <iframe 
-                        src="${fileUrl}" 
-                        type="application/pdf"
-                        width="100%" 
-                        height="100%"
-                        style="border: none; min-height: 800px;"
-                        onload="console.log('PDF loaded successfully')"
-                        onerror="console.error('PDF failed to load')">
-                        <p>Your browser doesn't support PDF preview. 
-                           <a href="${downloadUrl}" class="btn btn-primary">Download PDF</a>
-                        </p>
-                    </iframe>
-                </div>
-            `;
-            } else if (mimeType && mimeType.startsWith('image/')) {
-                // Image Preview
-                modalBody.innerHTML = `
-                <div class="text-center p-4">
-                    <img 
-                        src="${fileUrl}" 
-                        class="img-fluid" 
-                        alt="Image Preview" 
-                        style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"
-                        onload="console.log('Image loaded successfully')"
-                        onerror="this.src='/static/img/error-placeholder.png'; console.error('Image failed to load')">
-                </div>
-            `;
-            } else if (mimeType === 'text/plain' || mimeType === 'text/csv') {
-                // Text/CSV Preview - Fetch content
-                const textResponse = await fetch(fileUrl);
-                const text = await textResponse.text();
-                modalBody.innerHTML = `
-                <div class="p-4">
-                    <pre style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; max-height: 700px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 14px;">${escapeHtml(text)}</pre>
-                </div>
-            `;
-            } else {
-                // Unsupported file type
-                modalBody.innerHTML = `
-                <div class="text-center py-5">
-                    <i class="fas fa-file fa-4x text-muted mb-4"></i>
-                    <h5>Preview Not Available</h5>
-                    <p class="text-muted mb-4">This file type (${mimeType || 'unknown'}) cannot be previewed in the browser.</p>
-                    <div class="d-flex gap-3 justify-content-center">
-                        <a href="${downloadUrl}" class="btn btn-primary">
-                            <i class="fas fa-download"></i> Download File
-                        </a>
-                        <a href="${fileUrl}" class="btn btn-outline-primary" target="_blank">
-                            <i class="fas fa-external-link-alt"></i> Open in New Tab
-                        </a>
+            modalBody.innerHTML = `
+                <div class="container">
+                    <div class="alert alert-danger text-center">
+                        <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                        <h5>Error</h5>
+                        <p>An error occurred while loading the file preview.</p>
                     </div>
                 </div>
             `;
-            }
-        } catch (error) {
-            console.error('Error loading file preview:', error);
-            modalBody.innerHTML = `
-            <div class="alert alert-danger m-4 text-center">
-                <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
-                <h5>Error Loading File</h5>
-                <p>${error.message || 'Failed to load file preview'}</p>
-                <a href="${downloadUrl}" class="btn btn-primary mt-3">
-                    <i class="fas fa-download"></i> Download File Instead
-                </a>
-            </div>
-        `;
         }
     }
 
+    // Helper function to escape HTML
     function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
     }
 </script>
+
 {% endblock %}
