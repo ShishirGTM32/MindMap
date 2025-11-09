@@ -5,6 +5,7 @@ from flask import send_from_directory, current_app
 from werkzeug.utils import secure_filename
 from flask_mail import Message
 import mimetypes
+from io import BytesIO
 from datetime import datetime
 import os
 from db import *
@@ -356,8 +357,10 @@ def upload_file():
 @app.route('/files/download/<int:file_id>')
 @login_required
 def download_file(file_id):
+    """Download file - forces download to local storage"""
     file = File.query.get_or_404(file_id)
     
+    # Check permissions
     is_owner = file.user_id == current_user.id
     is_shared = Share_File.query.filter_by(
         file_id=file_id, 
@@ -368,21 +371,124 @@ def download_file(file_id):
         flash('You do not have permission to download this file.', 'danger')
         return redirect(url_for('files_list'))
     
-    auth_data = B2FileManager.get_download_authorization(file.b2_file_name, duration_seconds=3600)
+    print(f"Download requested by {current_user.username}: {file.original_filename}")
     
-    if not auth_data:
-        flash('Error generating download link.', 'danger')
+    # Download file from B2
+    success, content, error = B2FileManager.download_file_content(file.b2_file_name)
+    
+    if not success:
+        print(f"Download failed: {error}")
+        flash('Error downloading file from storage.', 'danger')
         return redirect(url_for('files_list'))
     
-    url_with_auth = f"{auth_data['url']}?Authorization={auth_data['authorization_token']}"
-    return redirect(url_with_auth)
+    # Create BytesIO object
+    file_data = BytesIO(content)
+    file_data.seek(0)
+    
+    print(f"✓ Serving {len(content)} bytes to user")
+    
+    # Serve file with forced download
+    return send_file(
+        file_data,
+        mimetype=file.mime_type or 'application/octet-stream',
+        as_attachment=True,  # This forces download
+        download_name=file.original_filename  # Sets the filename
+    )
+
+@app.route('/files/<int:file_id>/view')
+@login_required
+def view_file(file_id):
+    """View file content for preview modal"""
+    file = File.query.get_or_404(file_id)
+    
+    # Check permissions
+    is_owner = file.user_id == current_user.id
+    is_shared = Share_File.query.filter_by(
+        file_id=file_id, 
+        email=current_user.email
+    ).first() is not None
+    
+    if not (is_owner or is_shared):
+        return jsonify({'success': False, 'message': 'Permission denied'}), 403
+    
+    try:
+        # Get temporary download authorization
+        auth_data = B2FileManager.get_download_authorization(
+            file.b2_file_name, 
+            duration_seconds=3600,
+            force_download=False
+        )
+        
+        if not auth_data:
+            return jsonify({'success': False, 'message': 'Error generating download link'}), 500
+        
+        import requests
+        url_with_auth = f"{auth_data['url']}?Authorization={auth_data['authorization_token']}"
+        
+        # Download file content
+        response = requests.get(url_with_auth, timeout=30)
+        response.raise_for_status()
+        
+        file_content = response.content
+        
+        # Determine file type and handle accordingly
+        mime_type = file.mime_type or 'application/octet-stream'
+        
+        if mime_type.startswith('image/'):
+            # For images, return base64
+            import base64
+            encoded_content = base64.b64encode(file_content).decode('utf-8')
+            return jsonify({
+                'success': True,
+                'file_type': 'image',
+                'content': encoded_content,
+                'mime_type': mime_type
+            })
+        
+        elif mime_type == 'text/plain' or mime_type == 'text/csv':
+            # For text files, return decoded text
+            try:
+                text_content = file_content.decode('utf-8')
+            except UnicodeDecodeError:
+                text_content = file_content.decode('latin-1')
+            
+            return jsonify({
+                'success': True,
+                'file_type': 'text',
+                'content': text_content
+            })
+        
+        elif mime_type == 'application/pdf':
+            # For PDFs, return base64
+            import base64
+            encoded_content = base64.b64encode(file_content).decode('utf-8')
+            return jsonify({
+                'success': True,
+                'file_type': 'pdf',
+                'content': encoded_content
+            })
+        
+        else:
+            # For other files, indicate preview not available
+            return jsonify({
+                'success': True,
+                'file_type': 'other',
+                'content': None,
+                'message': 'Preview not available for this file type'
+            })
+    
+    except Exception as e:
+        print(f"Error viewing file: {e}")
+        return jsonify({'success': False, 'message': 'Error loading file content'}), 500
 
 
 @app.route('/files/serve/<int:file_id>')
 @login_required
 def serve_file(file_id):
+    """Serve file - opens in browser (for preview)"""
     file = File.query.get_or_404(file_id)
     
+    # Check permissions
     is_owner = file.user_id == current_user.id
     is_shared = Share_File.query.filter_by(
         file_id=file_id, 
@@ -392,7 +498,12 @@ def serve_file(file_id):
     if not (is_owner or is_shared):
         abort(403)
     
-    auth_data = B2FileManager.get_download_authorization(file.b2_file_name, duration_seconds=3600)
+    # Generate authorization WITHOUT forcing download (for preview)
+    auth_data = B2FileManager.get_download_authorization(
+        file.b2_file_name, 
+        duration_seconds=3600,
+        force_download=False  # This allows opening in browser
+    )
     
     if not auth_data:
         abort(404)
@@ -404,8 +515,10 @@ def serve_file(file_id):
 @app.route('/files/get-details/<int:file_id>')
 @login_required
 def get_file_details(file_id):
+    """Get file details with authorized URL for preview"""
     file = File.query.get_or_404(file_id)
     
+    # Check permissions
     is_owner = file.user_id == current_user.id
     is_shared = Share_File.query.filter_by(
         file_id=file_id, 
@@ -415,7 +528,12 @@ def get_file_details(file_id):
     if not (is_owner or is_shared):
         return jsonify({'success': False, 'message': 'Permission denied'}), 403
     
-    auth_data = B2FileManager.get_download_authorization(file.b2_file_name, duration_seconds=3600)
+    # For file details/preview, don't force download
+    auth_data = B2FileManager.get_download_authorization(
+        file.b2_file_name, 
+        duration_seconds=3600,
+        force_download=False
+    )
     
     if not auth_data:
         return jsonify({'success': False, 'message': 'Error generating download link'}), 500
@@ -434,10 +552,11 @@ def get_file_details(file_id):
     response.headers['Access-Control-Allow-Origin'] = '*'
     
     print(f"Serving file details for: {file.original_filename}")
-    print(f"Authorized URL generated")
+    print(f"Authorized URL generated (preview mode)")
     print(f"MIME: {file.mime_type}")
     
     return response
+
 
 @app.route('/files/<int:file_id>/delete', methods=['POST'])
 @login_required
@@ -447,11 +566,14 @@ def delete_file(file_id):
     
     if file.user_id != current_user.id:
         flash('You do not have permission to delete this file.', 'danger')
-        return redirect(url_for('file_list', file_id=file_id))
+        return redirect(url_for('files_list'))
     
     try:
         # Delete from B2
         B2FileManager.delete_file(file.b2_file_id, file.b2_file_name)
+        
+        # Delete all shares
+        Share_File.query.filter_by(file_id=file_id).delete()
         
         # Delete from database
         db.session.delete(file)
@@ -465,32 +587,53 @@ def delete_file(file_id):
         flash('An error occurred while deleting the file.', 'danger')
         return redirect(url_for('files_list'))
 
-@app.route('/files/<int:file_id>/edit', methods=['GET', 'POST'])
+@app.route('/files/<int:file_id>/edit', methods=['POST'])
 @login_required
 def edit_file(file_id):
+    """Edit/Rename a file"""
     file = File.query.get_or_404(file_id)
     
     # Check if current user is the owner
     if file.user_id != current_user.id:
-        flash('You do not have permission to delete this file.', 'danger')
-        return redirect(url_for('files_list'))
+        return jsonify({'success': False, 'message': 'You do not have permission to edit this file.'}), 403
+    
+    # Get new filename from request
+    new_filename = request.json.get('filename')
+    
+    if not new_filename:
+        return jsonify({'success': False, 'message': 'Filename is required.'}), 400
+    
+    # Validate filename
+    new_filename = new_filename.strip()
+    if not new_filename or len(new_filename) < 1:
+        return jsonify({'success': False, 'message': 'Filename cannot be empty.'}), 400
+    
+    if len(new_filename) > 255:
+        return jsonify({'success': False, 'message': 'Filename is too long (max 255 characters).'}), 400
+    
+    # Check if filename has extension, if not preserve original extension
+    if '.' not in new_filename:
+        # Get original extension
+        original_parts = file.original_filename.rsplit('.', 1)
+        if len(original_parts) == 2:
+            new_filename = f"{new_filename}.{original_parts[1]}"
     
     try:
-        # Delete physical file
-        if os.path.exists(file.file_path):
-            os.remove(file.file_path)
-        
-        # Delete database entry
-        db.session.delete(file)
+        # Update filename in database
+        file.original_filename = new_filename
         db.session.commit()
         
-        flash('File deleted successfully!', 'success')
-        return redirect(url_for('files_list'))
+        print(f"File renamed: {file.id} -> {new_filename}")
+        return jsonify({
+            'success': True, 
+            'message': 'File renamed successfully!',
+            'new_filename': new_filename
+        })
     except Exception as e:
         db.session.rollback()
-        print(f"Error deleting file: {e}")
-        flash('An error occurred while deleting the file.', 'danger')
-        return redirect(url_for('files_list'))
+        print(f"Error renaming file: {e}")
+        return jsonify({'success': False, 'message': 'An error occurred while renaming the file.'}), 500
+
 
 @app.route('/files/<int:file_id>/share', methods=['POST'])
 @login_required
