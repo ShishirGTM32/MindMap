@@ -21,10 +21,22 @@ from cloud import *
 
 app = Flask(__name__)
 
+def get_user_identifier():
+    """
+    Returns user ID if authenticated, otherwise falls back to IP address.
+    This ensures authenticated users are rate-limited per account,
+    while unauthenticated users are rate-limited per IP.
+    """
+    if current_user.is_authenticated:
+        return f"user:{current_user.id}"
+    return f"ip:{get_remote_address()}"
+
+# Initialize limiter with custom key function
 limiter = Limiter(
     app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
+    key_func=get_user_identifier,  # Use custom function instead of get_remote_address
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"  # Use memory storage (or Redis for production)
 )
 
 # Configuration
@@ -38,7 +50,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['REMEMBER_COOKIE_SECURE'] = False 
 app.config['REMEMBER_COOKIE_HTTPONLY'] = True
 
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # Use your SMTP server
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = os.environ.get('EMAIL_HOST_USER')
@@ -50,8 +62,6 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 mail = Mail(app) 
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY']) 
-
-
 
 # Initialize database
 init_app(app)
@@ -71,6 +81,7 @@ def load_user(user_id):
     except Exception as e:
         print(f"Error loading user: {e}")
         return None
+    
 
 @app.route('/')
 def index():
@@ -78,6 +89,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/register', methods=['GET', 'POST'])
+@limiter.limit("10 per hour")
 def register():
     """User registration"""
     if current_user.is_authenticated:
@@ -187,6 +199,7 @@ def dashboard():
 
 @app.route('/change_username', methods=['POST'])
 @login_required
+@limiter.limit("5 per hour")
 def change_username():
     """Change username"""
     new_username = request.form.get('username')
@@ -215,6 +228,7 @@ def change_username():
 
 @app.route('/change_password', methods=['POST'])
 @login_required
+@limiter.limit("5 per hour")
 def change_password():
     """Change user password"""
     old_password = request.form.get('old_password')
@@ -256,6 +270,7 @@ def change_password():
 
 @app.route('/change_email', methods=['POST'])
 @login_required
+@limiter.limit("5 per hour")
 def change_email():
     """Change user email"""
     new_email = request.form.get('email')
