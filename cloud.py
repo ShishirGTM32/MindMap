@@ -73,12 +73,13 @@ class B2FileManager:
             file.seek(0)
             file_content = file.read()
             
+            # Changed: Use 'attachment' to force download instead of 'inline'
             file_info = bucket.upload_bytes(
                 data_bytes=file_content,
                 file_name=unique_filename,
                 content_type=detected_mime,
                 file_infos={
-                    'b2-content-disposition': 'inline'
+                    'b2-content-disposition': f'attachment; filename="{safe_filename}"'
                 }
             )
             
@@ -104,21 +105,48 @@ class B2FileManager:
             print(f"B2 Upload error: {e}")
             return False, f"Upload failed: {str(e)}", None
     
+
     @staticmethod
-    def get_download_authorization(b2_file_name, duration_seconds=3600):
+    def get_download_authorization(b2_file_name, duration_seconds=3600, force_download=True):
+        """
+        Generate download authorization with optional forced download
+        
+        Args:
+            b2_file_name: Name of file in B2
+            duration_seconds: How long the authorization is valid
+            force_download: If True, adds Content-Disposition header to force download
+        """
         try:
             bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
             
-            auth_token = bucket.get_download_authorization(
-                file_name_prefix=b2_file_name,
-                valid_duration_in_seconds=duration_seconds
-            )
+            # Extract original filename from the path
+            original_name = b2_file_name.split('/')[-1]
+            # Remove timestamp prefix (e.g., "20250108_123456_")
+            if '_' in original_name:
+                parts = original_name.split('_', 2)
+                if len(parts) == 3:
+                    original_name = parts[2]
+            
+            # For forced download, set content disposition in file_info
+            if force_download:
+                auth_token = bucket.get_download_authorization(
+                    file_name_prefix=b2_file_name,
+                    valid_duration_in_seconds=duration_seconds,
+                    b2_content_disposition=f'attachment; filename="{original_name}"'
+                )
+            else:
+                auth_token = bucket.get_download_authorization(
+                    file_name_prefix=b2_file_name,
+                    valid_duration_in_seconds=duration_seconds
+                )
             
             download_url = b2_api.account_info.get_download_url()
             file_url = f"{download_url}/file/{B2_BUCKET_NAME}/{b2_file_name}"
             
             print(f"✓ Generated download authorization for: {b2_file_name}")
             print(f"  Token valid for: {duration_seconds} seconds")
+            print(f"  Force download: {force_download}")
+            print(f"  Original filename: {original_name}")
             
             return {
                 'url': file_url,
@@ -129,6 +157,31 @@ class B2FileManager:
         except Exception as e:
             print(f"Error generating download authorization: {e}")
             return None
+    
+    @staticmethod
+    def download_file_content(b2_file_name):
+        """
+        Download file content from B2 using SDK
+        Returns: (success, content_bytes, error_message)
+        """
+        try:
+            bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+            
+            # Download file using B2 SDK
+            downloaded_file = bucket.download_file_by_name(b2_file_name)
+            
+            # Get content as bytes
+            from io import BytesIO
+            buffer = BytesIO()
+            downloaded_file.save(buffer)
+            content = buffer.getvalue()
+            
+            print(f"✓ Downloaded {len(content)} bytes from B2: {b2_file_name}")
+            return True, content, None
+            
+        except Exception as e:
+            print(f"✗ Error downloading file from B2: {e}")
+            return False, None, str(e)
     
     @staticmethod
     def delete_file(b2_file_id, b2_file_name):
