@@ -31,10 +31,16 @@ class B2FileManager:
         'application/zip'
     }
     
-    MAX_FILE_SIZE = 16 * 1024 * 1024
+    # Removed MAX_FILE_SIZE - now handled in Flask route before this is called
     
     @staticmethod
     def validate_and_upload(file, user_id):
+        """
+        Validate and upload file to Backblaze B2
+        
+        Note: File size validation should be done BEFORE calling this method
+        in the Flask route to prevent rate limit abuse.
+        """
         if not file or not file.filename:
             return False, "No file provided", None
         
@@ -42,23 +48,24 @@ class B2FileManager:
         if not safe_filename or '.' not in safe_filename:
             return False, "Invalid filename", None
         
+        # Get file size for metadata (validation already done in route)
         file.seek(0, os.SEEK_END)
         file_size = file.tell()
         file.seek(0)
         
-        if file_size > B2FileManager.MAX_FILE_SIZE:
-            return False, f"File too large (max 16MB)", None
-        
+        # Check for empty files
         if file_size == 0:
             return False, "File is empty", None
         
+        # Read first 2KB for MIME type detection
         file.seek(0)
         file_bytes = file.read(2048)
         file.seek(0)
         
         try:
             detected_mime = magic.from_buffer(file_bytes, mime=True)
-        except:
+        except Exception as e:
+            print(f"MIME detection error: {e}")
             return False, "Could not detect file type", None
         
         if detected_mime not in B2FileManager.ALLOWED_MIME_TYPES:
@@ -73,7 +80,7 @@ class B2FileManager:
             file.seek(0)
             file_content = file.read()
             
-            # Changed: Use 'attachment' to force download instead of 'inline'
+            # Use 'attachment' to force download instead of 'inline'
             file_info = bucket.upload_bytes(
                 data_bytes=file_content,
                 file_name=unique_filename,
@@ -97,12 +104,13 @@ class B2FileManager:
             
             print(f"✓ File uploaded: {unique_filename}")
             print(f"  File ID: {file_info.id_}")
-            print(f"  Base URL: {base_url}")
+            print(f"  Size: {file_size / 1024:.2f} KB")
+            print(f"  MIME: {detected_mime}")
             
             return True, "File uploaded successfully", file_data
             
         except Exception as e:
-            print(f"B2 Upload error: {e}")
+            print(f"✗ B2 Upload error: {e}")
             return False, f"Upload failed: {str(e)}", None
     
 
@@ -113,7 +121,7 @@ class B2FileManager:
         
         Args:
             b2_file_name: Name of file in B2
-            duration_seconds: How long the authorization is valid
+            duration_seconds: How long the authorization is valid (default: 1 hour)
             force_download: If True, adds Content-Disposition header to force download
         """
         try:
@@ -155,7 +163,7 @@ class B2FileManager:
             }
             
         except Exception as e:
-            print(f"Error generating download authorization: {e}")
+            print(f"✗ Error generating download authorization: {e}")
             return None
     
     @staticmethod
@@ -185,6 +193,16 @@ class B2FileManager:
     
     @staticmethod
     def delete_file(b2_file_id, b2_file_name):
+        """
+        Delete a file from Backblaze B2
+        
+        Args:
+            b2_file_id: B2 file ID
+            b2_file_name: B2 file name/path
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
         try:
             b2_api.delete_file_version(b2_file_id, b2_file_name)
             

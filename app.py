@@ -322,7 +322,7 @@ def files_list():
                          other_files=other_files)
 
 @app.route('/files/upload', methods=['GET', 'POST'])
-@limiter.limit("10 per hour")
+@limiter.limit("10 per hour", exempt_when=lambda: request.method == 'GET')
 @login_required
 def upload_file():
     """Upload a new file to Backblaze B2"""
@@ -331,22 +331,37 @@ def upload_file():
     if form.validate_on_submit():
         file = form.file.data
         
-        # Validate and upload
+        # STEP 1: Check file size FIRST (16MB limit)
+        # This doesn't count toward rate limit
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        
+        max_size = 16 * 1024 * 1024  # 16MB in bytes
+        if file_size > max_size:
+            flash(f'File size exceeds maximum limit of 16MB. Your file is {file_size / (1024 * 1024):.2f}MB.', 'danger')
+            return redirect(url_for('upload_file'))
+        
+        if file_size == 0:
+            flash('Cannot upload empty file.', 'danger')
+            return redirect(url_for('upload_file'))
+        
+        # STEP 2: Validate and upload to B2
         success, message, file_data = B2FileManager.validate_and_upload(
             file, 
             current_user.id
         )
         
         if not success:
-            flash(message, 'danger')
+            flash(f'Upload failed: {message}', 'danger')
             return redirect(url_for('upload_file'))
         
-        # Save to database
+        # STEP 3: Save to database
         new_file = File(
             filename=file_data['b2_file_name'],
             original_filename=file_data['original_filename'],
             description=form.description.data,
-            file_path=file_data['download_url'],  # Store download URL
+            file_path=file_data['download_url'],
             file_size=file_data['file_size'],
             mime_type=file_data['mime_type'],
             user_id=current_user.id,
@@ -358,16 +373,21 @@ def upload_file():
         try:
             db.session.add(new_file)
             db.session.commit()
-            flash('File uploaded successfully!', 'success')
+            
+            # Success message
+            flash(f'File "{file_data["original_filename"]}" uploaded successfully!', 'success')
             return redirect(url_for('files_list'))
+            
         except Exception as e:
             db.session.rollback()
             # Cleanup: delete from B2 if database save fails
             B2FileManager.delete_file(file_data['b2_file_id'], file_data['b2_file_name'])
             print(f"Error saving to database: {e}")
-            flash('An error occurred while saving the file.', 'danger')
+            flash('An error occurred while saving the file to database.', 'danger')
+            return redirect(url_for('upload_file'))
     
     return render_template('upload_file.html', form=form)
+
 
 @app.route('/files/download/<int:file_id>')
 @login_required
@@ -406,8 +426,8 @@ def download_file(file_id):
     return send_file(
         file_data,
         mimetype=file.mime_type or 'application/octet-stream',
-        as_attachment=True,  # This forces download
-        download_name=file.original_filename  # Sets the filename
+        as_attachment=True,
+        download_name=file.original_filename
     )
 
 @app.route('/files/<int:file_id>/view')
@@ -517,7 +537,7 @@ def serve_file(file_id):
     auth_data = B2FileManager.get_download_authorization(
         file.b2_file_name, 
         duration_seconds=3600,
-        force_download=False  # This allows opening in browser
+        force_download=False
     )
     
     if not auth_data:
@@ -649,6 +669,72 @@ def edit_file(file_id):
         print(f"Error renaming file: {e}")
         return jsonify({'success': False, 'message': 'An error occurred while renaming the file.'}), 500
 
+
+@app.route('/files/<int:file_id>/info', methods=['GET'])
+@login_required
+def get_file_info(file_id):
+    """Get file information including description"""
+    file = File.query.get_or_404(file_id)
+    
+    # Check permissions
+    is_owner = file.user_id == current_user.id
+    is_shared = Share_File.query.filter_by(
+        file_id=file_id, 
+        email=current_user.email
+    ).first() is not None
+    
+    if not (is_owner or is_shared):
+        return jsonify({'success': False, 'message': 'Permission denied'}), 403
+    
+    return jsonify({
+        'success': True,
+        'file': {
+            'id': file.id,
+            'filename': file.original_filename,
+            'description': file.description or '',
+            'file_size': file.file_size,
+            'mime_type': file.mime_type,
+            'upload_date': file.upload_date.isoformat(),
+            'owner': file.owner.username,
+            'is_owner': is_owner
+        }
+    })
+
+
+@app.route('/files/<int:file_id>/update-description', methods=['POST'])
+@login_required
+@limiter.limit("20 per hour")
+def update_file_description(file_id):
+    """Update file description"""
+    file = File.query.get_or_404(file_id)
+    
+    # Check if current user is the owner
+    if file.user_id != current_user.id:
+        return jsonify({'success': False, 'message': 'You do not have permission to edit this file.'}), 403
+    
+    # Get new description from request
+    new_description = request.json.get('description', '').strip()
+    
+    # Validate description length
+    if len(new_description) > 500:
+        return jsonify({'success': False, 'message': 'Description is too long (max 500 characters).'}), 400
+    
+    try:
+        # Update description in database
+        file.description = new_description if new_description else None
+        db.session.commit()
+        
+        print(f"File description updated: {file.id}")
+        return jsonify({
+            'success': True, 
+            'message': 'Description updated successfully!',
+            'description': file.description or ''
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating description: {e}")
+        return jsonify({'success': False, 'message': 'An error occurred while updating the description.'}), 500
+    
 
 @app.route('/files/<int:file_id>/share', methods=['POST'])
 @login_required

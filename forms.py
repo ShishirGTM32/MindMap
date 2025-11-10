@@ -78,9 +78,38 @@ class LoginForm(FlaskForm):
 
 class ChangePasswordForm(FlaskForm):
     old_password = PasswordField('Current Password', validators=[DataRequired()])
-    new_password1 = PasswordField('New Password', validators=[DataRequired(), Length(min=8)])
-    new_password2 = PasswordField('Confirm New Password', validators=[DataRequired(), EqualTo('new_password1')])
+    
+    new_password1 = PasswordField('New Password', validators=[
+        DataRequired(message="New password is required"),
+        Length(min=8, max=20, message="Password must be between 8 and 20 characters"),
+        Regexp(
+            r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$',
+            message="Password must contain at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character (@$!%*?&)"
+        )
+    ])
+    
+    new_password2 = PasswordField('Confirm New Password', validators=[
+        DataRequired(message="Please confirm your new password"),
+        EqualTo('new_password1', message="Passwords must match")
+    ])
+    
     submit = SubmitField('Update Password')
+
+    def validate_new_password1(self, new_password1):
+        """Additional password checks for extra clarity (optional redundancy)"""
+        pwd = new_password1.data
+        
+        if not re.search(r'[A-Z]', pwd):
+            raise ValidationError("Password must contain at least one uppercase letter")
+        
+        if not re.search(r'[a-z]', pwd):
+            raise ValidationError("Password must contain at least one lowercase letter")
+        
+        if not re.search(r'\d', pwd):
+            raise ValidationError("Password must contain at least one number")
+        
+        if not re.search(r'[@$!%*?&]', pwd):
+            raise ValidationError("Password must contain at least one special character (@$!%*?&)")  
 
 class ChangeEmailForm(FlaskForm):
     email = EmailField('New Email Address', validators=[DataRequired(), Email()])
