@@ -194,31 +194,40 @@
         padding: 6px 12px;
         font-size: 12px;
     }
+
+    .description-preview {
+        font-size: 12px;
+        color: #5f6368;
+        margin-top: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 </style>
 
 <!-- Flash Messages -->
-    <div class="container mt-3">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        {% for category, message in messages %}
-        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
-            role="alert">
-            {% if category == 'success' %}
-            <i class="fas fa-check-circle"></i>
-            {% elif category == 'danger' or category == 'error' %}
-            <i class="fas fa-exclamation-triangle"></i>
-            {% elif category == 'info' %}
-            <i class="fas fa-info-circle"></i>
-            {% elif category == 'warning' %}
-            <i class="fas fa-exclamation-circle"></i>
-            {% endif %}
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        {% endfor %}
+<div class="container mt-3">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
+        role="alert">
+        {% if category == 'success' %}
+        <i class="fas fa-check-circle"></i>
+        {% elif category == 'danger' or category == 'error' %}
+        <i class="fas fa-exclamation-triangle"></i>
+        {% elif category == 'info' %}
+        <i class="fas fa-info-circle"></i>
+        {% elif category == 'warning' %}
+        <i class="fas fa-exclamation-circle"></i>
         {% endif %}
-        {% endwith %}
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+</div>
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -256,6 +265,10 @@
                     <div class="file-icon-container">
                         <i class="fas fa-file-alt file-icon"></i>
                         <div class="file-actions" onclick="event.stopPropagation();">
+                            <button type="button" class="btn btn-sm btn-info" title="Info"
+                                onclick="event.stopPropagation(); openInfoModal({{ file.id }});">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
                             <a href="{{ url_for('download_file', file_id=file.id) }}" class="btn btn-sm btn-light"
                                 title="Download" onclick="event.stopPropagation();">
                                 <i class="fas fa-download"></i>
@@ -284,6 +297,11 @@
                         <div class="file-meta">
                             {{ "%.1f"|format(file.file_size / 1024) }} KB • {{ file.upload_date.strftime('%b %d') }}
                         </div>
+                        {% if file.description %}
+                        <div class="description-preview" title="{{ file.description }}">
+                            <i class="fas fa-comment-alt"></i> {{ file.description }}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -304,8 +322,17 @@
                     <div class="file-list-meta">
                         {{ "%.1f"|format(file.file_size / 1024) }} KB • {{ file.upload_date.strftime('%b %d, %Y') }}
                     </div>
+                    {% if file.description %}
+                    <div class="description-preview" title="{{ file.description }}">
+                        <i class="fas fa-comment-alt"></i> {{ file.description }}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="file-list-actions" onclick="event.stopPropagation();">
+                    <button type="button" class="btn btn-sm btn-outline-info" title="Info"
+                        onclick="event.stopPropagation(); openInfoModal({{ file.id }});">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
                     <a href="{{ url_for('download_file', file_id=file.id) }}" class="btn btn-sm btn-outline-success"
                         title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download"></i>
@@ -340,7 +367,7 @@
         {% endif %}
     </div>
 
-    <!-- Other Users' Files -->
+    <!-- Other Users' Files (Shared with me) -->
     <div class="mb-5">
         <div class="section-header">
             <i class="fas fa-users"></i> Shared with me
@@ -356,6 +383,10 @@
                         style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
                         <i class="fas fa-file-alt file-icon"></i>
                         <div class="file-actions" onclick="event.stopPropagation();">
+                            <button type="button" class="btn btn-sm btn-info" title="Info"
+                                onclick="event.stopPropagation(); openInfoModal({{ file.id }});">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
                             <a href="{{ url_for('download_file', file_id=file.id) }}" class="btn btn-sm btn-light"
                                 title="Download" onclick="event.stopPropagation();">
                                 <i class="fas fa-download"></i>
@@ -372,6 +403,11 @@
                         <span class="owner-badge">
                             <i class="fas fa-user"></i> {{ file.owner.username }}
                         </span>
+                        {% if file.description %}
+                        <div class="description-preview" title="{{ file.description }}">
+                            <i class="fas fa-comment-alt"></i> {{ file.description }}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -395,8 +431,17 @@
                     <div class="file-list-meta">
                         {{ "%.1f"|format(file.file_size / 1024) }} KB • {{ file.upload_date.strftime('%b %d, %Y') }}
                     </div>
+                    {% if file.description %}
+                    <div class="description-preview" title="{{ file.description }}">
+                        <i class="fas fa-comment-alt"></i> {{ file.description }}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="file-list-actions" onclick="event.stopPropagation();">
+                    <button type="button" class="btn btn-sm btn-outline-info" title="Info"
+                        onclick="event.stopPropagation(); openInfoModal({{ file.id }});">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
                     <a href="{{ url_for('download_file', file_id=file.id) }}" class="btn btn-sm btn-outline-success"
                         title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download"></i>
@@ -411,6 +456,35 @@
             <p class="text-muted">No files shared with you.</p>
         </div>
         {% endif %}
+    </div>
+</div>
+
+<!-- File Info Modal -->
+<div class="modal fade" id="infoModal" tabindex="-1" role="dialog" aria-labelledby="infoModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document" style="max-width: 600px;">
+        <div class="modal-content">
+            <div class="modal-header"
+                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h5 class="modal-title" id="infoModalLabel">
+                    <i class="fas fa-info-circle"></i> File Information
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="infoContent">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -533,12 +607,6 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <a id="modalDownloadBtn" href="#" class="btn btn-success">
-                    <i class="fas fa-download"></i> Download
-                </a>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
         </div>
     </div>
 </div>
@@ -546,6 +614,7 @@
 <script>
     let currentShareFileId = null;
     let currentRenameFileId = null;
+    let currentInfoFileId = null;
 
     // View toggle functionality
     document.getElementById('gridView').addEventListener('click', function () {
@@ -564,6 +633,212 @@
         document.querySelectorAll('.grid-view').forEach(el => el.classList.remove('active'));
     });
 
+    // Open info modal
+    async function openInfoModal(fileId) {
+        currentInfoFileId = fileId;
+        const infoContent = document.getElementById('infoContent');
+        
+        infoContent.innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+
+        const infoModalElement = document.getElementById('infoModal');
+        let infoModal;
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            infoModal = new bootstrap.Modal(infoModalElement);
+            infoModal.show();
+        } else if (typeof $ !== 'undefined' && $.fn.modal) {
+            $(infoModalElement).modal('show');
+        }
+
+        try {
+            const response = await fetch(`/files/${fileId}/info`);
+            const data = await response.json();
+
+            if (data.success) {
+                const file = data.file;
+                const uploadDate = new Date(file.upload_date).toLocaleString();
+                const fileSize = (file.file_size / 1024).toFixed(2);
+                
+                infoContent.innerHTML = `
+                    <div class="card border-0 mb-3">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">
+                                <i class="fas fa-file-alt text-primary"></i> ${escapeHtml(file.filename)}
+                            </h6>
+                            <table class="table table-borderless">
+                                <tbody>
+                                    <tr>
+                                        <td class="text-muted" style="width: 120px;"><i class="fas fa-user"></i> Owner:</td>
+                                        <td>${escapeHtml(file.owner)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted"><i class="fas fa-hdd"></i> Size:</td>
+                                        <td>${fileSize} KB</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted"><i class="fas fa-file-code"></i> Type:</td>
+                                        <td>${escapeHtml(file.mime_type || 'Unknown')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted"><i class="fas fa-calendar"></i> Uploaded:</td>
+                                        <td>${uploadDate}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="card border-0">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="card-title mb-0">
+                                    <i class="fas fa-comment-alt text-primary"></i> Description
+                                </h6>
+                                ${file.is_owner ? `
+                                <button class="btn btn-sm btn-outline-primary" onclick="enableDescriptionEdit()">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                ` : ''}
+                            </div>
+                            <div id="descriptionDisplay">
+                                ${file.description ? `<p class="mb-0">${escapeHtml(file.description)}</p>` : '<p class="text-muted mb-0"><em>No description provided.</em></p>'}
+                            </div>
+                            <div id="descriptionEdit" style="display: none;">
+                                <textarea class="form-control mb-2" id="descriptionInput" rows="3" maxlength="500" placeholder="Enter file description (max 500 characters)">${escapeHtml(file.description || '')}</textarea>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        <span id="charCount">${file.description ? file.description.length : 0}</span>/500 characters
+                                    </small>
+                                    <div>
+                                        <button class="btn btn-sm btn-secondary" onclick="cancelDescriptionEdit()">Cancel</button>
+                                        <button class="btn btn-sm btn-primary" onclick="saveDescription()">
+                                            <i class="fas fa-save"></i> Save
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="descriptionError" class="text-danger mt-2" style="display: none;"></div>
+                                <div id="descriptionSuccess" class="text-success mt-2" style="display: none;"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                infoContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> ${data.message || 'Error loading file information'}
+                    </div>
+                `;
+            }
+        } catch (error) {
+            infoContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> An error occurred while loading file information.
+                </div>
+            `;
+        }
+    }
+
+    function enableDescriptionEdit() {
+        document.getElementById('descriptionDisplay').style.display = 'none';
+        document.getElementById('descriptionEdit').style.display = 'block';
+        document.getElementById('descriptionError').style.display = 'none';
+        document.getElementById('descriptionSuccess').style.display = 'none';
+        
+        const textarea = document.getElementById('descriptionInput');
+        textarea.focus();
+        
+        // Update character count on input
+        textarea.addEventListener('input', function() {
+            document.getElementById('charCount').textContent = this.value.length;
+        });
+    }
+
+    function cancelDescriptionEdit() {
+        document.getElementById('descriptionDisplay').style.display = 'block';
+        document.getElementById('descriptionEdit').style.display = 'none';
+        document.getElementById('descriptionError').style.display = 'none';
+        document.getElementById('descriptionSuccess').style.display = 'none';
+    }
+
+    async function saveDescription() {
+        const description = document.getElementById('descriptionInput').value.trim();
+        const errorDiv = document.getElementById('descriptionError');
+        const successDiv = document.getElementById('descriptionSuccess');
+        
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+
+        try {
+            const response = await fetch(`/files/${currentInfoFileId}/update-description`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ description: description })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                successDiv.textContent = data.message;
+                successDiv.style.display = 'block';
+                
+                // Update the display
+                const displayDiv = document.getElementById('descriptionDisplay');
+                if (data.description) {
+                    displayDiv.innerHTML = `<p class="mb-0">${escapeHtml(data.description)}</p>`;
+                } else {
+                    displayDiv.innerHTML = '<p class="text-muted mb-0"><em>No description provided.</em></p>';
+                }
+                
+                // Update UI in file list
+                updateFileDescriptionInUI(currentInfoFileId, data.description);
+                
+                setTimeout(() => {
+                    cancelDescriptionEdit();
+                }, 1500);
+            } else {
+                errorDiv.textContent = data.message;
+                errorDiv.style.display = 'block';
+            }
+        } catch (error) {
+            errorDiv.textContent = 'An error occurred while updating the description.';
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    function updateFileDescriptionInUI(fileId, description) {
+        // Find all file cards with this ID and update description preview
+        document.querySelectorAll('.file-card, .file-list-item').forEach(card => {
+            const onclick = card.getAttribute('onclick');
+            if (onclick && onclick.includes(`openFileModal(${fileId}`)) {
+                const fileInfo = card.querySelector('.file-info');
+                if (fileInfo) {
+                    let descPreview = fileInfo.querySelector('.description-preview');
+                    
+                    if (description) {
+                        if (!descPreview) {
+                            descPreview = document.createElement('div');
+                            descPreview.className = 'description-preview';
+                            fileInfo.appendChild(descPreview);
+                        }
+                        descPreview.innerHTML = `<i class="fas fa-comment-alt"></i> ${escapeHtml(description)}`;
+                        descPreview.setAttribute('title', description);
+                    } else {
+                        if (descPreview) {
+                            descPreview.remove();
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     // Open rename modal
     function openRenameModal(fileId, currentFileName) {
         currentRenameFileId = fileId;
@@ -580,11 +855,9 @@
             $(renameModalElement).modal('show');
         }
 
-        // Focus on input after modal opens
         setTimeout(() => {
             const input = document.getElementById('newFileName');
             input.focus();
-            // Select filename without extension
             const lastDot = currentFileName.lastIndexOf('.');
             if (lastDot > 0) {
                 input.setSelectionRange(0, lastDot);
@@ -601,7 +874,6 @@
         const successDiv = document.getElementById('renameSuccess');
         const submitBtn = this;
 
-        // Reset messages
         errorDiv.style.display = 'none';
         successDiv.style.display = 'none';
 
@@ -611,7 +883,6 @@
             return;
         }
 
-        // Disable button during submission
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
@@ -630,13 +901,11 @@
                 successDiv.textContent = data.message;
                 successDiv.style.display = 'block';
 
-                // Update filename in the UI
                 document.querySelectorAll('.file-name, .file-list-name').forEach(el => {
                     const card = el.closest('.file-card, .file-list-item');
                     if (card && card.getAttribute('onclick')?.includes(`openFileModal(${currentRenameFileId}`)) {
                         el.textContent = data.new_filename;
                         el.setAttribute('title', data.new_filename);
-                        // Update onclick to reflect new filename
                         const oldOnclick = card.getAttribute('onclick');
                         const newOnclick = oldOnclick.replace(
                             /openFileModal\(\d+,\s*'[^']*'/,
@@ -646,7 +915,6 @@
                     }
                 });
 
-                // Close modal after 1 second
                 setTimeout(() => {
                     const renameModalElement = document.getElementById('renameModal');
                     if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
@@ -669,7 +937,6 @@
         }
     });
 
-    // Allow Enter key to submit rename form
     document.getElementById('newFileName').addEventListener('keypress', function (e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -694,7 +961,6 @@
             $(shareModalElement).modal('show');
         }
 
-        // Load existing shares
         await loadShares(fileId);
     }
 
@@ -741,8 +1007,6 @@
         } catch (error) {
             sharesList.innerHTML = `
                 <div class="alert alert-danger">
-                    <!-- Continuation from the error handler in loadShares function -->
-                <div class="alert alert-danger">
                     <i class="fas fa-exclamation-triangle"></i> Error loading shares
                 </div>
             `;
@@ -766,13 +1030,11 @@
             const data = await response.json();
 
             if (data.success) {
-                // Remove the share element from the DOM
                 const shareElement = document.getElementById(`share-${shareId}`);
                 if (shareElement) {
                     shareElement.remove();
                 }
 
-                // Check if there are any shares left
                 const sharesList = document.getElementById('sharesList');
                 if (sharesList.children.length === 0) {
                     sharesList.innerHTML = `
@@ -783,7 +1045,6 @@
                     `;
                 }
 
-                // Show success message briefly
                 const successDiv = document.getElementById('shareSuccess');
                 successDiv.textContent = data.message;
                 successDiv.style.display = 'block';
@@ -805,7 +1066,6 @@
         const successDiv = document.getElementById('shareSuccess');
         const submitBtn = this;
 
-        // Reset messages
         errorDiv.style.display = 'none';
         successDiv.style.display = 'none';
 
@@ -815,7 +1075,6 @@
             return;
         }
 
-        // Basic email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             errorDiv.textContent = 'Please enter a valid email address.';
@@ -823,7 +1082,6 @@
             return;
         }
 
-        // Disable button during submission
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sharing...';
 
@@ -843,10 +1101,8 @@
                 successDiv.style.display = 'block';
                 document.getElementById('shareEmail').value = '';
 
-                // Reload the shares list
                 await loadShares(currentShareFileId);
 
-                // Hide success message after 3 seconds
                 setTimeout(() => {
                     successDiv.style.display = 'none';
                 }, 3000);
@@ -863,7 +1119,6 @@
         }
     });
 
-    // Allow Enter key to submit share form
     document.getElementById('shareEmail').addEventListener('keypress', function (e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -874,7 +1129,6 @@
     // Open file preview modal
     async function openFileModal(fileId, fileName, mimeType) {
         document.getElementById('modalFileName').textContent = fileName;
-        document.getElementById('modalDownloadBtn').href = `/files/${fileId}/download`;
 
         const modalBody = document.getElementById('fileModalBody');
         modalBody.innerHTML = `

@@ -14,7 +14,17 @@
         min-height: calc(100vh - 80px);
         display: flex;
         align-items: center;
+        justify-content: center;
         padding: 2rem 0;
+    }
+
+    .content-wrapper {
+        display: flex;
+        gap: 2rem;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: none;
     }
 
     .signup-card {
@@ -25,6 +35,8 @@
         border: 1px solid rgba(0, 0, 0, 0.05);
         overflow: hidden;
         transition: transform 0.3s ease;
+        flex: 0 0 500px;
+        max-width: 500px;
     }
 
     .signup-card:hover {
@@ -73,7 +85,7 @@
         position: relative;
     }
 
-    .form-floating > .form-control {
+    .form-floating>.form-control {
         border: 2px solid #e9ecef;
         border-radius: 12px;
         padding: 1rem 0.75rem;
@@ -81,22 +93,22 @@
         transition: all 0.3s ease;
     }
 
-    .form-floating > .form-control:focus {
+    .form-floating>.form-control:focus {
         border-color: #6c757d;
         box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
     }
 
-    .form-floating > .form-control.is-invalid {
+    .form-floating>.form-control.is-invalid {
         border-color: #dc3545;
         background-color: #fff5f5;
     }
 
-    .form-floating > .form-control.is-valid {
+    .form-floating>.form-control.is-valid {
         border-color: #198754;
         background-color: #f0fdf4;
     }
 
-    .form-floating > label {
+    .form-floating>label {
         color: #6c757d;
         font-weight: 500;
     }
@@ -172,72 +184,71 @@
         color: #343a40;
     }
 
-    /* Password Requirements Tooltip */
-    .password-requirements {
-        position: absolute;
-        bottom: 100%;
-        left: 0;
-        right: 0;
-        background: #495057;
+    .password-requirements-panel {
+        background: linear-gradient(135deg, #495057 0%, #343a40 100%);
         color: white;
-        padding: 1rem;
-        border-radius: 12px;
-        margin-bottom: 0.5rem;
-        font-size: 0.85rem;
-        opacity: 0;
-        visibility: hidden;
-        transform: translateY(10px);
+        padding: 1.5rem;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        width: 350px;
+        flex: 0 0 350px;
         transition: all 0.3s ease;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        align-self: center;
+        order: -1;
     }
 
-    .password-requirements::after {
-        content: '';
-        position: absolute;
-        top: 100%;
-        left: 20px;
-        width: 0;
-        height: 0;
-        border-left: 10px solid transparent;
-        border-right: 10px solid transparent;
-        border-top: 10px solid #495057;
+    .password-requirements-panel.active {
+        box-shadow: 0 25px 50px rgba(108, 117, 125, 0.3);
+        transform: scale(1.02);
     }
 
-    .form-floating:hover .password-requirements,
-    .form-floating .form-control:focus ~ .password-requirements {
-        opacity: 1;
-        visibility: visible;
-        transform: translateY(0);
-    }
-
-    .password-requirements h6 {
-        margin: 0 0 0.75rem 0;
-        font-size: 0.9rem;
-        font-weight: 600;
+    .password-requirements-panel h5 {
+        margin: 0 0 1.25rem 0;
+        font-size: 1.1rem;
+        font-weight: 700;
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.75rem;
+        color: #ffffff;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        padding-bottom: 1rem;
+    }
+
+    .password-requirements-panel h5 i {
+        font-size: 1.3rem;
     }
 
     .requirement {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        margin: 0.5rem 0;
-        padding: 0.4rem;
-        border-radius: 6px;
-        transition: all 0.2s ease;
+        gap: 0.75rem;
+        margin: 0.75rem 0;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.08);
+        border-left: 3px solid transparent;
     }
 
     .requirement i {
-        font-size: 0.75rem;
-        width: 16px;
+        font-size: 1rem;
+        width: 20px;
+        flex-shrink: 0;
+        transition: all 0.3s ease;
+    }
+
+    .requirement span {
+        font-size: 0.9rem;
+        line-height: 1.5;
+        flex: 1;
     }
 
     .requirement.met {
         color: #d4edda;
-        background: rgba(40, 167, 69, 0.2);
+        background: rgba(40, 167, 69, 0.3);
+        border-left-color: #28a745;
+        animation: checkPulse 0.4s ease;
     }
 
     .requirement.met i {
@@ -246,10 +257,23 @@
 
     .requirement.unmet {
         color: rgba(255, 255, 255, 0.7);
+        border-left-color: rgba(255, 255, 255, 0.2);
     }
 
     .requirement.unmet i {
         color: rgba(255, 255, 255, 0.4);
+    }
+
+    @keyframes checkPulse {
+
+        0%,
+        100% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.05);
+        }
     }
 
     /* Password match indicator */
@@ -273,13 +297,49 @@
 
     /* Shake animation */
     @keyframes shake {
-        0%, 100% { transform: translateX(0); }
-        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-        20%, 40%, 60%, 80% { transform: translateX(5px); }
+
+        0%,
+        100% {
+            transform: translateX(0);
+        }
+
+        10%,
+        30%,
+        50%,
+        70%,
+        90% {
+            transform: translateX(-5px);
+        }
+
+        20%,
+        40%,
+        60%,
+        80% {
+            transform: translateX(5px);
+        }
     }
 
     .shake {
         animation: shake 0.5s;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 992px) {
+        .content-wrapper {
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .signup-card {
+            max-width: 100%;
+        }
+
+        .password-requirements-panel {
+            max-width: 100%;
+            position: relative;
+            top: 0;
+            margin-top: 2rem;
+        }
     }
 
     @media (max-width: 768px) {
@@ -295,190 +355,183 @@
         .signup-body {
             padding: 2rem 1.5rem;
         }
-
-        .password-requirements {
-            position: fixed;
-            bottom: auto;
-            top: 50%;
-            left: 1rem;
-            right: 1rem;
-            transform: translateY(-50%);
-        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container signup-container">
-    <div class="row justify-content-center w-100">
-        <div class="col-lg-5 col-md-7 col-sm-9">
-            <div class="signup-card">
-                <div class="signup-header">
-                    <h3><i class="fas fa-user-plus me-2"></i>Create Your Account</h3>
-                    <p>Join our community and start your journey</p>
-                </div>
+    <div class="content-wrapper">
+        <!-- Registration Form -->
+        <div class="signup-card">
+            <div class="signup-header">
+                <h3><i class="fas fa-user-plus me-2"></i>Create Your Account</h3>
+                <p>Join our community and start your journey</p>
+            </div>
 
-                <div class="signup-body">
-                    <form method="POST" action="{{ url_for('register') }}" id="registerForm">
-                        {{ form.hidden_tag() }}
-                        {% if form.errors %}
-                            <div class="alert alert-danger alert-custom" role="alert" id="error-alert">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                {% for field, errors in form.errors.items() %}
-                                    {% for error in errors %}
-                                        <span>{{ error }}</span><br>
+            <div class="signup-body">
+                <form method="POST" action="{{ url_for('register') }}" id="registerForm">
+                    {{ form.hidden_tag() }}
+                    {% if form.errors %}
+                    <div class="alert alert-danger alert-custom" role="alert" id="error-alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        {% for field, errors in form.errors.items() %}
+                        {% for error in errors %}
+                        <span>{{ error }}</span><br>
+                        {% endfor %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <!-- First Name Field -->
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.first_name(class="form-control", placeholder="Enter your first name") }}
+                                <label for="first_name"><i class="fas fa-user me-2"></i>First Name</label>
+                                {% if form.first_name.errors %}
+                                <div class="error-message">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    {% for error in form.first_name.errors %}
+                                    <span>{{ error }}</span>
                                     {% endfor %}
-                                {% endfor %}
+                                </div>
+                                {% endif %}
                             </div>
+                        </div>
+
+                        <!-- Last Name Field -->
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.last_name(class="form-control", placeholder="Enter your last name") }}
+                                <label for="last_name"><i class="fas fa-user me-2"></i>Last Name</label>
+                                {% if form.last_name.errors %}
+                                <div class="error-message">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    {% for error in form.last_name.errors %}
+                                    <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Username Field -->
+                    <div class="form-floating">
+                        {{ form.username(class="form-control", placeholder="Enter username") }}
+                        <label for="username"><i class="fas fa-at me-2"></i>Username</label>
+                        {% if form.username.errors %}
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-circle"></i>
+                            {% for error in form.username.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
                         {% endif %}
+                    </div>
 
-                        <div class="row">
-                            <!-- First Name Field -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    {{ form.first_name(class="form-control", placeholder="Enter your first name") }}
-                                    <label for="first_name"><i class="fas fa-user me-2"></i>First Name</label>
-                                    {% if form.first_name.errors %}
-                                        <div class="error-message">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {% for error in form.first_name.errors %}
-                                                <span>{{ error }}</span>
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <!-- Last Name Field -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    {{ form.last_name(class="form-control", placeholder="Enter your last name") }}
-                                    <label for="last_name"><i class="fas fa-user me-2"></i>Last Name</label>
-                                    {% if form.last_name.errors %}
-                                        <div class="error-message">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {% for error in form.last_name.errors %}
-                                                <span>{{ error }}</span>
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
+                    <!-- Email Field -->
+                    <div class="form-floating">
+                        {{ form.email(class="form-control", placeholder="Enter your email") }}
+                        <label for="email"><i class="fas fa-envelope me-2"></i>Email Address</label>
+                        {% if form.email.errors %}
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-circle"></i>
+                            {% for error in form.email.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
                         </div>
+                        {% endif %}
+                    </div>
 
-                        <!-- Username Field -->
-                        <div class="form-floating">
-                            {{ form.username(class="form-control", placeholder="Enter username") }}
-                            <label for="username"><i class="fas fa-at me-2"></i>Username</label>
-                            {% if form.username.errors %}
-                                <div class="error-message">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                    {% for error in form.username.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+                    <!-- Password Field -->
+                    <div class="form-floating">
+                        {{ form.password(class="form-control", placeholder="Enter password", id="password") }}
+                        <label for="password"><i class="fas fa-lock me-2"></i>Password</label>
+
+                        {% if form.password.errors %}
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-circle"></i>
+                            {% for error in form.password.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
                         </div>
+                        {% endif %}
+                    </div>
 
-                        <!-- Email Field -->
-                        <div class="form-floating">
-                            {{ form.email(class="form-control", placeholder="Enter your email") }}
-                            <label for="email"><i class="fas fa-envelope me-2"></i>Email Address</label>
-                            {% if form.email.errors %}
-                                <div class="error-message">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                    {% for error in form.email.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+                    <!-- Confirm Password Field -->
+                    <div class="form-floating position-relative">
+                        {{ form.confirm_password(class="form-control", placeholder="Confirm password",
+                        id="confirm_password") }}
+                        <label for="confirm_password"><i class="fas fa-lock me-2"></i>Confirm Password</label>
+                        <div class="password-match-indicator" id="matchIndicator" style="display: none;"></div>
+
+                        {% if form.confirm_password.errors %}
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-circle"></i>
+                            {% for error in form.confirm_password.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
                         </div>
+                        {% endif %}
+                    </div>
 
-                        <!-- Password Field with Requirements Tooltip -->
-                        <div class="form-floating">
-                            {{ form.password(class="form-control", placeholder="Enter password", id="password") }}
-                            <label for="password"><i class="fas fa-lock me-2"></i>Password</label>
-                            
-                            <!-- Password Requirements Tooltip -->
-                            <div class="password-requirements" id="passwordRequirements">
-                                <h6><i class="fas fa-shield-alt"></i> Password Requirements:</h6>
-                                <div class="requirement unmet" id="req-length">
-                                    <i class="fas fa-circle"></i>
-                                    <span>8-20 characters</span>
-                                </div>
-                                <div class="requirement unmet" id="req-uppercase">
-                                    <i class="fas fa-circle"></i>
-                                    <span>At least 1 uppercase letter (A-Z)</span>
-                                </div>
-                                <div class="requirement unmet" id="req-lowercase">
-                                    <i class="fas fa-circle"></i>
-                                    <span>At least 1 lowercase letter (a-z)</span>
-                                </div>
-                                <div class="requirement unmet" id="req-number">
-                                    <i class="fas fa-circle"></i>
-                                    <span>At least 1 number (0-9)</span>
-                                </div>
-                                <div class="requirement unmet" id="req-special">
-                                    <i class="fas fa-circle"></i>
-                                    <span>At least 1 special character (@$!%*?&)</span>
-                                </div>
-                            </div>
+                    <!-- Submit Button -->
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-signup btn-lg" id="submitBtn">
+                            <i class="fas fa-user-plus me-2"></i>Create Account
+                        </button>
+                    </div>
 
-                            {% if form.password.errors %}
-                                <div class="error-message">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                    {% for error in form.password.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
+                    <!-- Login Link -->
+                    <div class="login-link">
+                        <p class="mb-0">Already have an account?
+                            <a href="{{ url_for('login') }}">
+                                <i class="fas fa-sign-in-alt me-1"></i>Sign In
+                            </a>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
 
-                        <!-- Confirm Password Field -->
-                        <div class="form-floating position-relative">
-                            {{ form.confirm_password(class="form-control", placeholder="Confirm password", id="confirm_password") }}
-                            <label for="confirm_password"><i class="fas fa-lock me-2"></i>Confirm Password</label>
-                            <div class="password-match-indicator" id="matchIndicator" style="display: none;"></div>
-                            
-                            {% if form.confirm_password.errors %}
-                                <div class="error-message">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                    {% for error in form.confirm_password.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
+        <!-- Password Requirements Panel - Always Visible -->
+        <div class="password-requirements-panel" id="passwordRequirementsPanel">
+            <h5><i class="fas fa-shield-alt"></i>Password Requirements</h5>
 
-                        <!-- Submit Button -->
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-signup btn-lg" id="submitBtn">
-                                <i class="fas fa-user-plus me-2"></i>Create Account
-                            </button>
-                        </div>
-
-                        <!-- Login Link -->
-                        <div class="login-link">
-                            <p class="mb-0">Already have an account? 
-                                <a href="{{ url_for('login') }}">
-                                    <i class="fas fa-sign-in-alt me-1"></i>Sign In
-                                </a>
-                            </p>
-                        </div>
-                    </form>
-                </div>
+            <div class="requirement unmet" id="req-length">
+                <i class="fas fa-circle"></i>
+                <span>8-20 characters long</span>
+            </div>
+            <div class="requirement unmet" id="req-uppercase">
+                <i class="fas fa-circle"></i>
+                <span>At least 1 uppercase letter (A-Z)</span>
+            </div>
+            <div class="requirement unmet" id="req-lowercase">
+                <i class="fas fa-circle"></i>
+                <span>At least 1 lowercase letter (a-z)</span>
+            </div>
+            <div class="requirement unmet" id="req-number">
+                <i class="fas fa-circle"></i>
+                <span>At least 1 number (0-9)</span>
+            </div>
+            <div class="requirement unmet" id="req-special">
+                <i class="fas fa-circle"></i>
+                <span>At least 1 special character (@$!%*?&)</span>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const passwordInput = document.getElementById('password');
         const confirmPasswordInput = document.getElementById('confirm_password');
         const matchIndicator = document.getElementById('matchIndicator');
         const form = document.getElementById('registerForm');
         const submitBtn = document.getElementById('submitBtn');
+        const requirementsPanel = document.getElementById('passwordRequirementsPanel');
 
         // Password requirement elements
         const reqLength = document.getElementById('req-length');
@@ -487,21 +540,31 @@
         const reqNumber = document.getElementById('req-number');
         const reqSpecial = document.getElementById('req-special');
 
+        // Add active class when password field is focused
+        passwordInput.addEventListener('focus', function () {
+            requirementsPanel.classList.add('active');
+        });
+
+        passwordInput.addEventListener('blur', function () {
+            requirementsPanel.classList.remove('active');
+        });
+
         // Check password requirements in real-time
-        passwordInput.addEventListener('input', function() {
+        passwordInput.addEventListener('input', function () {
             const password = this.value;
-            let allMet = true;
+            let metCount = 0;
+            let totalRequirements = 5;
 
             // Check length (8-20 characters)
             if (password.length >= 8 && password.length <= 20) {
                 reqLength.classList.remove('unmet');
                 reqLength.classList.add('met');
                 reqLength.querySelector('i').className = 'fas fa-check-circle';
+                metCount++;
             } else {
                 reqLength.classList.remove('met');
                 reqLength.classList.add('unmet');
                 reqLength.querySelector('i').className = 'fas fa-circle';
-                allMet = false;
             }
 
             // Check uppercase
@@ -509,11 +572,11 @@
                 reqUppercase.classList.remove('unmet');
                 reqUppercase.classList.add('met');
                 reqUppercase.querySelector('i').className = 'fas fa-check-circle';
+                metCount++;
             } else {
                 reqUppercase.classList.remove('met');
                 reqUppercase.classList.add('unmet');
                 reqUppercase.querySelector('i').className = 'fas fa-circle';
-                allMet = false;
             }
 
             // Check lowercase
@@ -521,11 +584,11 @@
                 reqLowercase.classList.remove('unmet');
                 reqLowercase.classList.add('met');
                 reqLowercase.querySelector('i').className = 'fas fa-check-circle';
+                metCount++;
             } else {
                 reqLowercase.classList.remove('met');
                 reqLowercase.classList.add('unmet');
                 reqLowercase.querySelector('i').className = 'fas fa-circle';
-                allMet = false;
             }
 
             // Check number
@@ -533,11 +596,11 @@
                 reqNumber.classList.remove('unmet');
                 reqNumber.classList.add('met');
                 reqNumber.querySelector('i').className = 'fas fa-check-circle';
+                metCount++;
             } else {
                 reqNumber.classList.remove('met');
                 reqNumber.classList.add('unmet');
                 reqNumber.querySelector('i').className = 'fas fa-circle';
-                allMet = false;
             }
 
             // Check special character
@@ -545,16 +608,16 @@
                 reqSpecial.classList.remove('unmet');
                 reqSpecial.classList.add('met');
                 reqSpecial.querySelector('i').className = 'fas fa-check-circle';
+                metCount++;
             } else {
                 reqSpecial.classList.remove('met');
                 reqSpecial.classList.add('unmet');
                 reqSpecial.querySelector('i').className = 'fas fa-circle';
-                allMet = false;
             }
 
             // Update password input styling
             if (password.length > 0) {
-                if (allMet) {
+                if (metCount === totalRequirements) {
                     passwordInput.classList.remove('is-invalid');
                     passwordInput.classList.add('is-valid');
                 } else {
@@ -585,11 +648,13 @@
             if (password === confirmPassword && password.length > 0) {
                 confirmPasswordInput.classList.remove('is-invalid');
                 confirmPasswordInput.classList.add('is-valid');
+                matchIndicator.innerHTML = '<i class="fas fa-check-circle"></i>';
                 matchIndicator.className = 'password-match-indicator match';
                 matchIndicator.style.display = 'block';
             } else {
                 confirmPasswordInput.classList.add('is-invalid');
                 confirmPasswordInput.classList.remove('is-valid');
+                matchIndicator.innerHTML = '<i class="fas fa-times-circle"></i>';
                 matchIndicator.className = 'password-match-indicator no-match';
                 matchIndicator.style.display = 'block';
             }
@@ -598,7 +663,7 @@
         confirmPasswordInput.addEventListener('input', checkPasswordMatch);
 
         // Form submission
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', function (e) {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating Account...';
         });
@@ -606,7 +671,7 @@
         // Auto-dismiss error alert
         const alertBox = document.getElementById('error-alert');
         if (alertBox) {
-            setTimeout(function() {
+            setTimeout(function () {
                 alertBox.style.transition = "opacity 0.5s ease";
                 alertBox.style.opacity = "0";
                 setTimeout(() => alertBox.remove(), 500);
@@ -616,7 +681,7 @@
         // Basic validation feedback for all inputs
         const inputs = form.querySelectorAll('.form-control');
         inputs.forEach(input => {
-            input.addEventListener('blur', function() {
+            input.addEventListener('blur', function () {
                 if (this.value && this.id !== 'password' && this.id !== 'confirm_password') {
                     if (this.checkValidity()) {
                         this.classList.remove('is-invalid');
